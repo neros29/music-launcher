@@ -1,0 +1,89 @@
+from pathlib import Path
+import hashlib
+import socket
+import json
+from typing import List
+
+class PlayBackController:
+    def __init__(self, ipc_file: str) -> None:
+        try:
+            self.client = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+            self.client.connect(ipc_file)
+        except Exception as e:
+            print(f"Error in MpvController: {e}")
+
+    def _send(self, cmd: str):
+        cmd += "\n"
+        self.client.send(cmd.encode())
+
+    def _recv(self):
+        response = b''
+        while True:
+            chunk = self.client.recv(1024)
+            if not chunk:
+                break
+            response += chunk
+            if b'\n' in chunk:
+                break
+        return json.loads(response.decode().strip())
+
+    def _hash_playlist(self, songs: List[str]):
+        hash = hashlib.sha256()
+        for song in songs:
+            hash.update(song.encode())
+        return hash.hexdigest()
+
+    def _write_m3u(self, songs: List[str]) -> str:
+        path = Path("~/.cache/music-control/").expanduser()
+        path.mkdir(exist_ok=True)
+        file = path / f"{self._hash_playlist(songs)}.m3u"
+        if not file.is_file():
+            with open(file, "w") as f:
+                for song in songs:
+                    f.write(song + "\n")
+        if file.is_file():
+            print("Cache hit")
+        return str(file)
+
+    def _replace_large(self, songs: List[str]):
+        path = self._write_m3u(songs)
+        cmd = {
+                "command": ["loadfile", path, "replace"]
+        }
+        self._send(json.dumps(cmd))
+        return self._recv()
+        
+
+    def _replace(self, songs: List[str]):
+        responses = []
+        first = True
+        for song in songs: 
+            if first:
+                cmd = {
+                        "command": ["loadfile", song, "replace"]
+                }
+                first = False
+            else:
+                cmd = {
+                        "command": ["loadfile", song, "append"]
+                }
+            self._send(json.dumps(cmd))
+            responses.append(self._recv())
+        return responses
+
+
+    def replace_playlist(self, songs: List[str]):
+        large: int = 6
+        if len(songs) > large:
+            return self._replace_large(songs)
+        else:
+            return self._replace(songs)
+             
+
+if __name__ == "__main__":
+    pbc = PlayBackController("/tmp/mpv")
+    songs = [str(i) for i in Path("/home/neros/Music/Soren/Pop/Album - Mouse Birthday Concert").iterdir()]
+    print("sending songs")
+    print(pbc.replace_playlist(songs))
+
+
