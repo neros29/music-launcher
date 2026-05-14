@@ -4,7 +4,7 @@ from sys import path
 from typing import Dict, List
 from wcwidth import wcwidth
 import time
-path.append("include/pytui/")
+path.append("pytui/")
 from pytui import Label, Tui, Surface, Character
 
 
@@ -92,11 +92,11 @@ if __name__ == "__main__":
         return colors
 
     tui = Tui()
-    size = [100, 5]
+    size = [100, 3]
     offset = [(tui.get_screen_size()[0] - size[0]) // 2, (tui.get_screen_size()[1] - size[1]) // 2]
 
     background: Surface = tui.append(size, offset, " ", 0)
-    background.fill_bg(15, 15, 15)
+    background.fill_bg(200, 200, 200)
 
     size2 = [size[0] - 2, 1]
     offset2 = [(tui.get_screen_size()[0] - size2[0]) // 2, (tui.get_screen_size()[1] - size2[1]) // 2]
@@ -123,4 +123,5 @@ if __name__ == "__main__":
                     continue
                 text += key
             tui.update_screen()
-        except KeyboardInterrbg
+        except KeyboardInterrupt:
+            break
