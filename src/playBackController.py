@@ -2,30 +2,52 @@ from pathlib import Path
 import hashlib
 import socket
 import json
-from typing import List
+from typing import Dict, List
+
+class SendCmd:
+    def __init__(self, ipc_file: str) -> None:
+        self.client = self._init_socket(ipc_file)
+        self.events = []
+        self.id = 0
+
+    def _init_socket(self, ipc_file):
+        client = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+        client.connect(ipc_file)
+        return client
+
+    def send(self, cmd_dict: Dict):
+        cmd_id = self.id
+        self.id += 1
+        cmd_dict["request_id"] = cmd_id
+        cmd = json.dumps(cmd_dict)
+        cmd += "\n"
+        self.client.send(cmd.encode())
+        while True:
+            response = b''
+            while True:
+                chunk = self.client.recv(1024)
+                if not chunk:
+                    break
+                response += chunk
+                if b'\n' in chunk:
+                    break
+            for line in response.decode().split("\n"):
+                if line.strip() == "":
+                    continue
+                try:
+                    data = json.loads(line)
+                    if data.get("request_id") == cmd_id:
+                        return data
+                    else:
+                        self.events.append(data)
+                        continue
+                except json.JSONDecodeError:
+                    print("[SendCmd] Error Decoding value: " + line)
+                    continue
 
 class PlayBackController:
     def __init__(self, ipc_file: str) -> None:
-        try:
-            self.client = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-            self.client.connect(ipc_file)
-        except Exception as e:
-            print(f"Error in MpvController: {e}")
-
-    def _send(self, cmd: str):
-        cmd += "\n"
-        self.client.send(cmd.encode())
-
-    def _recv(self):
-        response = b''
-        while True:
-            chunk = self.client.recv(1024)
-            if not chunk:
-                break
-            response += chunk
-            if b'\n' in chunk:
-                break
-        return json.loads(response.decode().strip())
+        self._cmd_runner = SendCmd(ipc_file)
 
     def _hash_playlist(self, songs: List[str]):
         hash = hashlib.sha256()
