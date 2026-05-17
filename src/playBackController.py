@@ -63,8 +63,6 @@ class PlayBackController:
             with open(file, "w") as f:
                 for song in songs:
                     f.write(song + "\n")
-        if file.is_file():
-            print("Cache hit")
         return str(file)
 
     def _replace_large(self, songs: List[str]):
@@ -72,8 +70,8 @@ class PlayBackController:
         cmd = {
                 "command": ["loadfile", path, "replace"]
         }
-        self._send(json.dumps(cmd))
-        return self._recv()
+        response = self._cmd_runner.send(cmd)
+        return [response]
         
 
     def _replace(self, songs: List[str]):
@@ -89,23 +87,25 @@ class PlayBackController:
                 cmd = {
                         "command": ["loadfile", song, "append"]
                 }
-            self._send(json.dumps(cmd))
-            responses.append(self._recv())
+            response = self._cmd_runner.send(cmd)
+            responses.append(response)
         return responses
 
 
     def replace_playlist(self, songs: List[str]):
-        large: int = 6
+        large: int = 30
         if len(songs) > large:
             return self._replace_large(songs)
         else:
             return self._replace(songs)
-             
+            
 
 if __name__ == "__main__":
     pbc = PlayBackController("/tmp/mpv")
+
+    # songs = [str(i) for i in Path("/home/neros/Music/Not_Used/Rock/Grateful Dead/Skeletons from the Closet_ The Best of t").iterdir()]
     songs = [str(i) for i in Path("/home/neros/Music/Soren/Pop/Album - Mouse Birthday Concert").iterdir()]
     print("sending songs")
-    print(pbc.replace_playlist(songs))
+    print(json.dumps(pbc.replace_playlist(songs), indent=4))
 
 

@@ -8,19 +8,11 @@ class Load:
         self.musicExtentions = (".mp3", ".m4a", ".mp4")
         self.dbPath = "/home/neros/Documents/projects/music/data/db.json"
         self.data = {}
+        self.loadFile()
 
     def extract_metadata(self, filepath):
         """Extract metadata from an audio file using mutagen."""
-        metadata = {
-            "title": None,
-            "artist": None,
-            "album": None,
-            "tracknumber": None,
-            "discnumber": None,
-            "date": None,
-            "genre": None,
-            "duration": None
-        }
+        metadata = self.data["music"][filepath]
         try:
             # Use easy mode for consistent tag access across formats
             audio = MutagenFile(filepath, easy=True)
@@ -28,18 +20,24 @@ class Load:
                 # Populate metadata from available tags
                 if 'title' in audio:
                     metadata['title'] = audio['title'][0]
+                else:
+                    metadata['title']  = None
                 if 'artist' in audio:
                     metadata['artist'] = audio['artist'][0]
+                else:
+                    metadata['artist']  = None
                 if 'album' in audio:
-                    metadata['album'] = audio['album'][0]
-                if 'tracknumber' in audio:
-                    metadata['tracknumber'] = audio['tracknumber'][0]
-                if 'discnumber' in audio:
-                    metadata['discnumber'] = audio['discnumber'][0]
+                    if audio['album'][0] is not None:
+                        metadata["playlists"][audio['album'][0]] = None
+
                 if 'date' in audio:
                     metadata['date'] = audio['date'][0]
+                else:
+                    metadata['date']  = None
                 if 'genre' in audio:
                     metadata['genre'] = audio['genre'][0]
+                else:
+                    metadata['genre']  = None
                 # Duration is stored in the audio info object
                 if audio.info and hasattr(audio.info, 'length'):
                     metadata['duration'] = audio.info.length
@@ -47,27 +45,36 @@ class Load:
                 print(f"Warning: Could not read metadata from {filepath}")
         except Exception as e:
             print(f"Error reading metadata from {filepath}: {e}")
-        return metadata
 
     def loadData(self):
-        music = {}
+        music = self.data["music"]
         for directory in os.walk(self.musicPath):
             for file in directory[2]:
                 path = os.path.join(directory[0], file)   # Safer path construction
                 if file.lower().endswith(self.musicExtentions):
-                    metadata = self.extract_metadata(path)
-                    music[path] = {
-                        "name": os.path.splitext(file)[0],   # Removes extension cleanly
-                        "playList": directory[0],
-                        "metadata": metadata
-                    }
-        self.data["music"] = music
+                    if music.get(path) is None:
+                        music[path] = {
+                            "playlists": {
+                                directory[0]: None,
+                            },
+                        }
+                        self.extract_metadata(path)
         self.saveData()
+
+    def loadFile(self):
+        if not os.path.isfile(self.dbPath):
+            with open(self.dbPath, "w") as f:
+                json.dump({"music": {}}, f)
+        with open(self.dbPath, "r") as f:
+            self.data = json.load(f)
+            if self.data.get("music") is None:
+                self.data["music"] = {}
 
     def saveData(self):
         with open(self.dbPath, "w") as f:
             json.dump(self.data, f, indent=4)
 
 if __name__ == "__main__":
-    load = Load("/home/neros/Music/")
+    load = Load("/home/neros/Music/Soren/")
     load.loadData()
+
