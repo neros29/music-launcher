@@ -5,7 +5,7 @@ from mutagen._file import File as MutagenFile
 class Load:
     def __init__(self, path):
         self.musicPath = path
-        self.musicExtentions = (".mp3", ".m4a", ".mp4")
+        self.musicExtentions = (".mp3", ".m4a")
         self.dbPath = "/home/neros/Documents/projects/music/data/db.json"
         self.data = {}
         self.loadFile()
@@ -27,7 +27,7 @@ class Load:
                 else:
                     metadata['artist']  = None
                 if 'album' in audio:
-                    if audio['album'][0] is not None:
+                    if audio['album'][0] is not None and audio["album"][0] != 'NA':
                         metadata["playlists"][audio['album'][0]] = None
 
                 if 'date' in audio:
@@ -54,9 +54,8 @@ class Load:
                 if file.lower().endswith(self.musicExtentions):
                     if music.get(path) is None:
                         music[path] = {
-                            "playlists": {
-                                directory[0]: None,
-                            },
+                                "playlists": {
+                                },
                         }
                         self.extract_metadata(path)
         self.saveData()
