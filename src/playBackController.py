@@ -100,12 +100,3 @@ class PlayBackController:
             return self._replace(songs)
             
 
-if __name__ == "__main__":
-    pbc = PlayBackController("/tmp/mpv")
-
-    # songs = [str(i) for i in Path("/home/neros/Music/Not_Used/Rock/Grateful Dead/Skeletons from the Closet_ The Best of t").iterdir()]
-    songs = [str(i) for i in Path("/home/neros/Music/Soren/Pop/Album - Mouse Birthday Concert").iterdir()]
-    print("sending songs")
-    print(json.dumps(pbc.replace_playlist(songs), indent=4))
-
-

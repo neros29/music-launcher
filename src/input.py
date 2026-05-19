@@ -1,10 +1,12 @@
 from os import system
 import string
-from sys import path
 from typing import Dict, List
 from wcwidth import wcwidth
 import time
+
+from sys import path
 path.append("include/pytui/")
+
 from pytui import Label, Tui, Surface, Character
 
 

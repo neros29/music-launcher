@@ -1,7 +1,8 @@
 from typing import Dict, List, Optional
+from thefuzz import fuzz, process
 from pathlib import Path
 import json
-
+import re
 
 class Song:
     def __init__(self, name: str = "", data: Optional[Dict]= None) -> None:
@@ -10,7 +11,7 @@ class Song:
         self._iterable_types = (dict, list)
 
     def has_property(self, key: str, value: str):
-        return value in self.get_values(key)
+        return value in str(self.get_values(key))
 
     def get_values(self, key: str):
         values = []
@@ -23,9 +24,39 @@ class Song:
             values.append(value)
         return values
 
+    def __repr__(self):
+        return self.name
+
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, Song):
+            return NotImplemented # Better than False for __eq__
+        return self.name == other.name
+
 class Data:
     def __init__(self, data = None) -> None:
         self.data: List[Song] = data if data is not None else []
+        self._min_score = 75
+        self._limit = None
+
+    def regex(self, key: str, pattern: str):
+        values = self.get_values(key)
+        results = []
+        for value in values:
+            try:
+                if re.search(pattern.lower(), value.lower()):
+                    results.append(value)
+            except Exception as e:
+                print(f"Error {e} with {value=}, and {pattern=}")
+        return results
+
+    def fuzz(self, key: str, pattern: str):
+        values = self.get_values(key)
+        matches = process.extract(pattern, values, scorer=fuzz.WRatio, limit=self._limit)
+        results = []
+        for match, score in matches:
+            if score > self._min_score:
+                results.append(match)
+        return results
 
     def get_songs(self, key: str, value: str):
         results = []
@@ -34,13 +65,23 @@ class Data:
                 results.append(song)
         return Data(results)
 
+
     def get_playable(self):
         return [i.name for i in self.data]
+
+    def get_songs_batch(self, key: str, values: List):
+        results = []
+        for value in values:
+            results += self.get_songs(key, value).data
+        return Data(results)
 
     def get_values(self, key: str) -> List:
         values = []
         for song in self.data:
-            values += song.get_values(key)
+                value = song.get_values(key)
+                for v in value:
+                    if v not in values:
+                        values.append(v)
         return values
     
     def concat_and(self, other: 'Data'):
@@ -51,46 +92,56 @@ class Data:
         return Data(matches)
 
     def concat_or(self, other: 'Data'):
-        new = self.data + other.data
-        return Data(new)
+        results = []
+        for i in self.data + other.data:
+            if i not in results:
+                results.append(i)
+        return Data(results)
 
     def __iter__(self):
         for i in self.data:
             yield i
 
+class Playlist(Data):
+    def __init__(self, playlist: Data, playlist_name: str = "") -> None:
+        super().__init__(playlist.data)
+        self.playlist_name: str = playlist_name
+        self.artist: str = self._get_artist()
 
-class Music(Data):
+    def _get_artist(self):
+        artists = self.get_values("artist")
+        count = {
+        }
+        for artist in artists:
+            if artist is not None:
+                for i in artist.split(","):
+                    if i in count:
+                        count[i] += 1
+                    else:
+                        count[i] = 1
+        most = 0
+        most_artist = ""
+        for artist in count:
+            if count[artist] > most:
+                most_artist = artist
+                most = count[artist]
+        return most_artist
+
+    def __repr__(self):
+        return self.get_playable().__repr__()
+
+class Query(Data):
     def __init__(self, db_path: Path) -> None:
         self.db_path: Path = db_path
-        music = self._load_file()
-        super().__init__([Song(i, music[i]) for i in music])
+        super().__init__(self._load_file())
 
     def _load_file(self):
         if not self.db_path.is_file():
             raise FileNotFoundError(f"File {self.db_path} dose not exst.")
         with open(self.db_path, "r") as f:
             data = json.load(f)
-        return data["music"]
-
-if __name__ == "__main__":
-    from thefuzz import fuzz, process
-    from playBackController import PlayBackController
-    pbc = PlayBackController("/tmp/mpv")
-    root = Music(Path("~/Documents/projects/music/data/db.json").expanduser())
-    matches = process.extract("gnarly", root.get_values("title"), scorer=fuzz.WRatio, limit=None)
-    matches2 = process.extract("ironmouse", root.get_values("artist"), scorer=fuzz.WRatio, limit=None)
-    songs = Data()
-    for match, score in matches:
-        if score > 75:
-            songs = songs.concat_or(root.get_songs("title", match))
-
-    songs2 = Data()
-    for match, score in matches2:
-        if score > 75:
-            songs2 = songs2.concat_or(root.get_songs("artist", match))
-
-    for song in songs.concat_and(songs2):
-        print(f"Song {song.get_values('title')} playlists: ", end="")
-        print(song.get_values("playlists"))
-    pbc.replace_playlist(songs.concat_and(songs2).get_playable())
+        songs = []
+        for song in data["music"]:
+            songs.append(Song(song, data["music"][song]))
+        return songs
 
