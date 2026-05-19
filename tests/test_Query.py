@@ -1,3 +1,6 @@
+from sys import path
+path.append("src/")
+
 from query import Query, Data, Song
 from pathlib import Path
 import json

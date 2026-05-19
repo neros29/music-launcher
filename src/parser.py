@@ -1,3 +1,5 @@
+from sys import path
+path.append("src/")
 from pathlib import Path
 from typing import Dict
 import query

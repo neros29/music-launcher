@@ -1,3 +1,5 @@
+from sys import path
+path.append("src/")
 from query import Data, Song, Playlist
 
 def test_Playlists():

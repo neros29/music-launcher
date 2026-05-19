@@ -1,6 +1,8 @@
+from sys import path
+path.append("src/")
+from query import Song
 
 def test_Song():
-    from query import Song
     song = Song("/home/neros/Music/Soren/Pop/Album - Club Ironmouse/Hell Again (Live Version).mp3", DATA["/home/neros/Music/Soren/Pop/Album - Club Ironmouse/Hell Again (Live Version).mp3"])
     song1 = Song("/home/neros/Music/Soren/Pop/Album - Club Ironmouse/Hell Again (Live Version).mp3", DATA["/home/neros/Music/Soren/Pop/Album - Club Ironmouse/Hell Again (Live Version).mp3"])
 
