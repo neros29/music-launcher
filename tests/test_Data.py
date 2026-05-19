@@ -18,9 +18,15 @@ def test_Data():
     values = data.get_values("playlists")
     assert values == ["Club Ironmouse"], f"data.get_values test failed returning {values=}"
 
+    values = data.get_values("playlists", all_values=True)
+    assert len(values) == 13, f"data.get_values test failed returning {len(values)=}"
+
+
     other_data = Data([Song(i, DATA) for i in DATA][0:5])
     values = data.concat_and(other_data)
     assert values.data == data.data[0:5], f"data.concat_and test failed returning {values.data=}"
+
+    assert data == data, f"data.__eq__ test failed returning {values.data=}"
 
     values = data.concat_or(other_data)
     assert values.data == data.data, f"data.concat_or test failed returning {values.data=}"

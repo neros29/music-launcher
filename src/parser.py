@@ -36,5 +36,10 @@ class Parser:
                 results = results.concat_and(self.query.get_songs_batch(key, values))
             else:
                 results = results.concat_or(self.query.get_songs_batch(key, values))
-        return results
+        if tokens["results"] == "all":
+            return query.Playlist(results)
+        elif tokens["results"] == "songs":
+            return results
+        else:
+            return self.query.get_playlists(results)
 

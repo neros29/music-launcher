@@ -1,15 +1,30 @@
+from typing import List
 from parser import Parser
 from pathlib import Path
 import json
+
+from query import Data, Playlist
 def test_Parser():
 
     tmp_db = Path("tmp/db.json")
     tmp_db.write_text(json.dumps({"music": DATA}))
     parser = Parser(Path("tmp/db.json").expanduser())
-    values = parser.parse({r"results": r"playlists", r"query": [{r"key": r"artist", r"re": "*iron*"}, r"and", {r"key": r"title", r"fuzz": r"Arent we all teh worst"}]})
+
+    values = parser.parse({r"results": r"songs", r"query": [{r"key": r"artist", r"re": "*iron*"}, r"and", {r"key": r"title", r"fuzz": r"Arent we all teh worst"}]})
+    assert isinstance(values, Data), "Parser.parse test faild do to values not being of type Data"
     assert "/home/neros/Music/Soren/Pop/Album - Club Ironmouse/Aren't We All The Worst (Live Version).mp3" == values.data[0].name, "Parser.prase test failed"
-    values1 = parser.parse({r"results": r"songs", r"query": [{r"key": r"title", r"re": r"reand"}]})
-    assert len(values1.data) == 0, "Parser.prase test failed"
+
+    values = parser.parse({r"results": r"songs", r"query": [{r"key": r"title", r"re": r"reand"}]})
+    assert isinstance(values, Data), "Parser.parse test faild do to values not being of type Data"
+    assert len(values.data) == 0, "Parser.prase test failed"
+    
+    values = parser.parse({r"results": r"playlists", r"query": [{r"key": r"playlists", r"re": r"Club Ironmouse"}]})
+    assert isinstance(values, List), "Parser.parse test faild do to values not being of type Playlist"
+    assert len(values[0].data) == 13, f"Parser.parse test faild with results {len(values[0].data)}"
+
+    values = parser.parse({r"results": r"all", r"query": [{r"key": r"duration", r"re": r"250.152"}, r"or", {r"key": r"duration", r"re": r"160.68"}]})
+    assert isinstance(values, Playlist), "Parser.parse test faild do to values not being of type Playlist"
+    assert len(values.data) == 2, f"Parser.parse test faild with results {len(values.data)}"
 
     assert parser._glob_to_regex("*iron*") == "^.*iron.*$", f"Parser._glob_to_regex test failed returning {parser._glob_to_regex('*iron*')}"
     assert parser._glob_to_regex("*iron?ouse.*") == r"^.*iron.ouse\..*$", f"Parser._glob_to_regex test failed returning {parser._glob_to_regex('*iron?ous.*')}"

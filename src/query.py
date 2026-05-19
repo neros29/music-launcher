@@ -19,9 +19,9 @@ class Song:
         if isinstance(value, self._iterable_types):
             for value in self.data.get(key, [None]):
                 if value is not None:
-                    values.append(value)
+                    values.append(str(value))
         else:
-            values.append(value)
+            values.append(str(value))
         return values
 
     def __repr__(self):
@@ -29,7 +29,7 @@ class Song:
 
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, Song):
-            return NotImplemented # Better than False for __eq__
+            return NotImplemented 
         return self.name == other.name
 
 class Data:
@@ -46,7 +46,7 @@ class Data:
                 if re.search(pattern.lower(), value.lower()):
                     results.append(value)
             except Exception as e:
-                print(f"Error {e} with {value=}, and {pattern=}")
+                print(f"Error \"{e}\" with {value=}, and {pattern=}")
         return results
 
     def fuzz(self, key: str, pattern: str):
@@ -57,7 +57,7 @@ class Data:
             if score > self._min_score:
                 results.append(match)
         return results
-
+    
     def get_songs(self, key: str, value: str):
         results = []
         for song in self.data:
@@ -65,23 +65,25 @@ class Data:
                 results.append(song)
         return Data(results)
 
-
-    def get_playable(self):
-        return [i.name for i in self.data]
-
     def get_songs_batch(self, key: str, values: List):
         results = []
         for value in values:
             results += self.get_songs(key, value).data
         return Data(results)
 
-    def get_values(self, key: str) -> List:
+    def get_playable(self):
+        return [i.name for i in self.data]
+
+    def get_values(self, key: str, all_values=False) -> List:
         values = []
         for song in self.data:
-                value = song.get_values(key)
-                for v in value:
-                    if v not in values:
-                        values.append(v)
+            if all_values:
+                values += song.get_values(key)
+                continue
+            value = song.get_values(key)
+            for v in value:
+                if v not in values:
+                    values.append(v)
         return values
     
     def concat_and(self, other: 'Data'):
@@ -102,14 +104,27 @@ class Data:
         for i in self.data:
             yield i
 
+    def __repr__(self):
+        return self.get_playable().__repr__()
+
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, Data):
+            return NotImplemented # Better than False for __eq__
+        return self.data == other.data
+
 class Playlist(Data):
     def __init__(self, playlist: Data, playlist_name: str = "") -> None:
         super().__init__(playlist.data)
         self.playlist_name: str = playlist_name
         self.artist: str = self._get_artist()
+        self._sort()
+
+    def _sort(self):
+        if self.playlist_name != "":
+            self.data.sort(key = lambda x: x.data["playlists"].get(self.playlist_name) or float("inf"))
 
     def _get_artist(self):
-        artists = self.get_values("artist")
+        artists = self.get_values("artist", all_values=True)
         count = {
         }
         for artist in artists:
@@ -125,10 +140,9 @@ class Playlist(Data):
             if count[artist] > most:
                 most_artist = artist
                 most = count[artist]
+        self.score = most / len(self.data)
         return most_artist
 
-    def __repr__(self):
-        return self.get_playable().__repr__()
 
 class Query(Data):
     def __init__(self, db_path: Path) -> None:
@@ -144,4 +158,18 @@ class Query(Data):
         for song in data["music"]:
             songs.append(Song(song, data["music"][song]))
         return songs
+
+    def get_playlists(self, root_songs: Data):
+        results = []
+        playlist_names = []
+        for song in root_songs:
+            playlists = song.get_values("playlists")
+            for playlist in playlists:  
+                if playlist not in playlist_names:
+                    playlist_names.append(playlist)
+        for playlist in playlist_names:
+            result = Playlist(self.get_songs("playlists", playlist), playlist)
+            results.append(result)
+        return results
+
 
