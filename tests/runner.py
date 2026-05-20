@@ -6,6 +6,7 @@ def test():
     from test_Data import test_Data
     from test_Song import test_Song
     from test_Parser import test_Parser
+    from test_QueryRunner import test_QueryRunner
     from test_Playlists import test_Playlists
     from test_Query import test_Query
 
@@ -15,6 +16,7 @@ def test():
              (test_Playlists, "Playlists"),
              (test_Query, "Query"),
              (test_Parser, "Parser"),
+             (test_QueryRunner, "QueryRunner"),
             ]
 
     test_passed = 0
