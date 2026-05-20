@@ -15,6 +15,9 @@ class SendCmd:
         client.connect(ipc_file)
         return client
 
+    def exit(self):
+        self.client.close()
+
     def send(self, cmd_dict: Dict):
         cmd_id = self.id
         self.id += 1
@@ -62,7 +65,8 @@ class PlayBackController:
         if not file.is_file():
             with open(file, "w") as f:
                 for song in songs:
-                    f.write(song + "\n")
+                    if Path(song).is_file():
+                        f.write(song + "\n")
         return str(file)
 
     def _replace_large(self, songs: List[str]):
@@ -78,21 +82,26 @@ class PlayBackController:
         responses = []
         first = True
         for song in songs: 
-            if first:
-                cmd = {
-                        "command": ["loadfile", song, "replace"]
-                }
-                first = False
-            else:
-                cmd = {
-                        "command": ["loadfile", song, "append"]
-                }
-            response = self._cmd_runner.send(cmd)
-            responses.append(response)
+            if Path(song).is_file():
+                if first:
+                    cmd = {
+                            "command": ["loadfile", song, "replace"]
+                    }
+                    first = False
+                else:
+                    cmd = {
+                            "command": ["loadfile", song, "append"]
+                    }
+                response = self._cmd_runner.send(cmd)
+                responses.append(response)
         return responses
 
+    def exit(self):
+        self._cmd_runner.exit()
 
     def replace_playlist(self, songs: List[str]):
+        if not isinstance(songs, list):
+            raise ValueError("Songs must be a list")
         large: int = 30
         if len(songs) > large:
             return self._replace_large(songs)

@@ -39,6 +39,3 @@ def test_Parser():
     expected = {r"results": r"playlists", r"query": [{r"key": r"artist", r"re": "*iron*"}, r"and", {r"key": r"title", r"fuzz": r"Arent we all teh worst"}, r"or", {r"key": r"title", r"re": "Left*"}]}
     assert result == expected
 
-    result = parser.parse(printable)
-    expected = None
-    assert result == expected

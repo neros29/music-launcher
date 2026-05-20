@@ -116,6 +116,7 @@ class Playlist(Data):
     def __init__(self, playlist: Data, playlist_name: str = "") -> None:
         super().__init__(playlist.data)
         self.playlist_name: str = playlist_name
+        self.score = 0
         self.artist: str = self._get_artist()
         self._sort()
 
@@ -129,11 +130,15 @@ class Playlist(Data):
         }
         for artist in artists:
             if artist is not None:
+                split_artist = []
                 for i in artist.split(","):
-                    if i in count:
-                        count[i] += 1
-                    else:
-                        count[i] = 1
+                    formated_artist = i.strip()
+                    if formated_artist not in split_artist:
+                        split_artist.append(formated_artist)
+                        if formated_artist in count:
+                            count[formated_artist] += 1
+                        else:
+                            count[formated_artist] = 1
         most = 0
         most_artist = ""
         for artist in count:

@@ -1,6 +1,5 @@
 from typing import Dict, List, Optional
 from enum import Enum, auto
-from string import printable
 import re
 
 class ParserState(Enum):
@@ -40,7 +39,7 @@ class Parser:
         operator_buffer = ""
         for token in tokens:
             if state == ParserState.SEARCHING:
-                if token in self.all_key_words:
+                if token.lower() in self.all_key_words:
                     key_buffer += token
                     state = ParserState.KEY
                 elif token in self.operators:
@@ -56,7 +55,7 @@ class Parser:
                         new_tokens.append({"operator": operator_buffer.replace(" ", "")})
                         operator_buffer = ""
                     if key_buffer.strip():
-                        new_tokens.append({"key": key_buffer.replace(" ", "")})
+                        new_tokens.append({"key": key_buffer.replace(" ", "").lower()})
                         key_buffer = ""
                     state = ParserState.SEARCHING
                 elif token == " ":
@@ -87,9 +86,10 @@ class Parser:
                     new_tokens.append(token)
             elif state == ParserState.KEY:
                 if "value" in token:
-                    string = re.search('^(?:"|\')(.*)(?:"|\')$', token["value"])
+                    # Group 1 captures which quote was used; \1 ensures the exact same quote ends the string
+                    string = re.search(r"^([\"'])(.*)\1$", token["value"])
                     if string:
-                        buffer["re"] = string.group(1)
+                        buffer["re"] = string.group(2)
                     else:
                         buffer["fuzz"] = token["value"]
                     new_tokens.append({"pair": buffer})
@@ -142,7 +142,7 @@ class Parser:
 
 if __name__ == "__main__":
     string = 'artist: "*iron*" title:Arent we all teh worst | title : \'Left*\'' 
-    string = "!!! artist: \"iron &\""
+    string = 'album: "Hybrid Theory"'
     correct_results = {r"results": r"playlists", r"query": [{r"key": r"artist", r"re": "*iron*"}, r"and", {r"key": r"title", r"fuzz": r"Arent we all teh worst"}, r"or", {r"key": r"title", r"re": "Left*"}]}
     parser = Parser()
     first = parser._first_pass(string) 

@@ -11,4 +11,4 @@ I need three diffrent descripter keyword things. One to say what you want to rec
 type [key: value, key:value] as a key value pair are alwasy 1:1 while there can be as many key: value pairs to search for a type.
 
 ### TODO
-make parser correctly output playlists or songs depending on the results, type.
+make Playlist sort corectly based on query.

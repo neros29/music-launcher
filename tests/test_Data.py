@@ -9,7 +9,7 @@ def test_Data():
     values = data.fuzz("title", "arent we all teh worst")
     assert values[0] == "Aren't We All The Worst (Live Version)", "data.fuzz test failed"
     
-    values = data.regex("title", "^.*We All The.*$")
+    values = data.regex("title", r"^.*We.*Version\)$")
     assert values == ["Aren't We All The Worst (Live Version)"], "data.regex test failed"
 
     values = data.get_songs("duration", "250.152")
