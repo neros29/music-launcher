@@ -68,7 +68,7 @@ class Parser:
                     value_buffer += token
                     state = ParserState.SEARCHING
         value_buffer += operator_buffer
-        assert key_buffer == ""
+        value_buffer += key_buffer
         if value_buffer:
             new_tokens.append({"value": value_buffer.strip()})
         return new_tokens

@@ -150,8 +150,8 @@ class Playlist(Data):
 
 
 class Query(Data):
-    def __init__(self, db_path: Path) -> None:
-        self.db_path: Path = db_path
+    def __init__(self, db_path) -> None:
+        self.db_path: Path = db_path if isinstance(db_path, Path) else Path(db_path)
         super().__init__(self._load_file())
 
     def _load_file(self):
@@ -176,5 +176,4 @@ class Query(Data):
             result = Playlist(self.get_songs("playlists", playlist), playlist)
             results.append(result)
         return results
-
 

@@ -12,3 +12,10 @@ type [key: value, key:value] as a key value pair are alwasy 1:1 while there can 
 
 ### TODO
 make Playlist sort corectly based on query.
+make parser autmaticly add a key if none exists
+figure out why artist: nihm isent working.
+get m3u files loading correctly.
+
+
+### TODAY
+refactor parser to be better for input.

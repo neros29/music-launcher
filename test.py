@@ -17,6 +17,7 @@ while True:
     if q == "/exit":
         break
     ast = parser.parse(q)
+    print(ast)
     if ast == None:
         print("Invalid search query")
         continue
