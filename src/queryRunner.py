@@ -30,7 +30,8 @@ class QueryRunner:
             if "re" in token:
                 values = self.root.regex(key, self._glob_to_regex(token["re"]))
             else:
-                values = self.root.fuzz(key, token["fuzz"])
+                if len(token["fuzz"]) > 1:
+                    values = self.root.fuzz(key, token["fuzz"])
             if op == "and":
                 results = results.concat_and(self.root.get_songs_batch(key, values))
             else:
