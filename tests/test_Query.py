@@ -1,19 +1,19 @@
 from sys import path
 path.append("src/")
 
-from query import Query, Data, Song
+from query import Query, Songs, Song
 from pathlib import Path
 import json
 
 def test_Query():
-    data = Data([Song(i, DATA[i]) for i in DATA])
+    data = Songs([Song(i, DATA[i]) for i in DATA])
     tmp_db = Path("tmp/db.json")
     tmp_db.write_text(json.dumps({"music": DATA}))
 
     query = Query(tmp_db)
     assert len(query.data) == len(data.data), "Query._load_file test faild"
 
-    playlists = query.get_playlists(Data([Song(i, DATA[i]) for i in DATA][:1]))
+    playlists = query.get_playlists(Songs([Song(i, DATA[i]) for i in DATA][:1]))
     assert playlists[0].playlist_name == "Club Ironmouse", f"Query.get_playlists test faild with value {playlists[0].playlist_name=}"
     assert playlists[0] == data, f"Query.get_playlists test faild with value {playlists[0].playlist_name=}"
     tmp_db.unlink()

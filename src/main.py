@@ -16,13 +16,20 @@ class Main:
     def __init__(self) -> None:
         logging.getLogger('thefuzz').setLevel(logging.ERROR)
         self.log = open("logs/log", "a")
+        self.running = True
         self.parser = Parser()
         self.db_path = "/home/neros/Documents/projects/music/data/db.json"
         self.query = Query(self.db_path)
         self.qr = QueryRunner(self.query)
-        self.ui = Ui()
-        self.pbc = PlayBackController("/tmp/mpv")
+        self.socket_file = "/tmp/mpv"
+        try:
+            self.pbc = PlayBackController(self.socket_file)
+        except FileNotFoundError:
+            print(f"File {self.socket_file} dose not exist. Please make sure that mpv is running in ipc server mode with the correct socket path.")
+            exit()
+            
 
+        self.ui = Ui()
         self.text: str = ""
         self.options_lock = Lock()
         self.options = []
@@ -33,7 +40,6 @@ class Main:
         self.curser_index = 0
         self.selected = 0
 
-        self.running = True
         self.special_keys = {
                 "Backspace": self._backspace,
                 "Left": self._move_left,

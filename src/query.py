@@ -32,7 +32,7 @@ class Song:
             return NotImplemented 
         return self.name == other.name
 
-class Data:
+class Songs:
     def __init__(self, data = None) -> None:
         self.data: List[Song] = data if data is not None else []
         self._min_score = 75
@@ -63,13 +63,13 @@ class Data:
         for song in self.data:
             if song.has_property(key, value):
                 results.append(song)
-        return Data(results)
+        return Songs(results)
 
     def get_songs_batch(self, key: str, values: List):
         results = []
         for value in values:
             results += self.get_songs(key, value).data
-        return Data(results)
+        return Songs(results)
 
     def get_playable(self):
         return [i.name for i in self.data]
@@ -86,19 +86,41 @@ class Data:
                     values.append(v)
         return values
     
-    def concat_and(self, other: 'Data'):
+    def _concat_and(self, other: 'Songs'):
         matches = []
         for value in self.data:
-            if value in other.data:
+            if value in other.data and value not in matches:
                 matches.append(value)
-        return Data(matches)
+        return Songs(matches)
 
-    def concat_or(self, other: 'Data'):
+    def concat_and(self, other):
+        if isinstance(other, Songs):
+            return self._concat_and(other)
+        elif isinstance(other, Playlists):
+            results = []
+            for songs in other:
+                results.append(self._concat_and(songs))
+            return results
+        else:
+            raise NotImplemented
+
+    def concat_or(self, other):
+        if isinstance(other, Songs):
+            return self._concat_or(other)
+        elif isinstance(other, Playlists):
+            results = []
+            for songs in other:
+                results.append(self._concat_or(songs))
+            return results
+        else:
+            raise NotImplemented
+
+    def _concat_or(self, other: 'Songs'):
         results = []
         for i in self.data + other.data:
             if i not in results:
                 results.append(i)
-        return Data(results)
+        return Songs(results)
 
     def __iter__(self):
         for i in self.data:
@@ -108,13 +130,32 @@ class Data:
         return self.get_playable().__repr__()
 
     def __eq__(self, other: object) -> bool:
-        if not isinstance(other, Data):
+        if not isinstance(other, Songs):
             return NotImplemented # Better than False for __eq__
         return self.data == other.data
 
-class Playlist(Data):
-    def __init__(self, playlist: Data, playlist_name: str = "") -> None:
-        super().__init__(playlist.data)
+    def __add__(self, other: 'Songs'):
+        self.data = self.data + other.data
+        results = []
+        for song in self.data:
+            if song not in results:
+                self.data.append(song)
+        return Songs(results)
+
+class Playlist(Songs):
+    def __init__(self, playlist, playlist_name: str = "") -> None:
+
+        if isinstance(playlist, Playlists):
+            new: Optional[Songs] = None
+            for i in playlist:
+                if new is None:
+                    new = i
+                else:
+                    new = new + i
+            assert new is not None, "this should not happend" 
+            super().__init__(new.data)
+        else:
+            super().__init__(playlist.data)
         self.playlist_name: str = playlist_name
         self.score = 0
         self.artist: str = self._get_artist()
@@ -148,8 +189,56 @@ class Playlist(Data):
         self.score = most / len(self.data)
         return most_artist
 
+class Playlists:
+    def __init__(self, data: List[Playlist]) -> None:
+        self.data = data
 
-class Query(Data):
+    def _concat_and(self, other: 'Songs'):
+        results = []
+        for songs in self.data:
+            matches = []
+            for song in songs:
+                if song not in matches and song in other.data:
+                    matches.append(song)
+            results.append(matches)
+        return Playlists(results)
+
+    def concat_and(self, other):
+        if isinstance(other, Songs):
+            return self._concat_and(other)
+        elif isinstance(other, Playlists):
+            results = []
+            for songs in other:
+                results.append(self._concat_and(songs))
+            return results
+        else:
+            raise NotImplemented
+
+    def concat_or(self, other):
+        if isinstance(other, Songs):
+            return self._concat_or(other)
+        elif isinstance(other, Playlists):
+            results = []
+            for songs in other:
+                results.append(self._concat_or(songs))
+            return results
+        else:
+            raise NotImplemented
+
+    def _concat_or(self, other: 'Songs'):
+        results = []
+        for songs in self.data:
+            matches = songs + other
+            results.append(matches)
+        return Playlists(results)
+
+    def __iter__(self):
+        for i in self.data:
+            yield i
+    def __getitem__(self, index: int):
+        return self.data[index]
+
+class Query(Songs):
     def __init__(self, db_path) -> None:
         self.db_path: Path = db_path if isinstance(db_path, Path) else Path(db_path)
         super().__init__(self._load_file())
@@ -164,7 +253,9 @@ class Query(Data):
             songs.append(Song(song, data["music"][song]))
         return songs
 
-    def get_playlists(self, root_songs: Data):
+    def get_playlists(self, root_songs) -> Playlists:
+        if isinstance(root_songs, Playlists):
+            return root_songs
         results = []
         playlist_names = []
         for song in root_songs:
@@ -175,5 +266,5 @@ class Query(Data):
         for playlist in playlist_names:
             result = Playlist(self.get_songs("playlists", playlist), playlist)
             results.append(result)
-        return results
+        return Playlists(results)
 

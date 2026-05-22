@@ -74,6 +74,6 @@ class Load:
             json.dump(self.data, f, indent=4)
 
 if __name__ == "__main__":
-    load = Load("/home/neros/Music/Soren/")
+    load = Load("/home/neros/Music/")
     load.loadData()
 

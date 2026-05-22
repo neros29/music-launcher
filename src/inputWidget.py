@@ -6,7 +6,7 @@ import time
 from pytui import Label, Tui, Surface
 from listWidget import ListWidget, Token, Element
 from queryRunner import QueryRunner
-from query import Query, Playlist, Data, Song
+from query import Query, Playlist, Songs, Song
 
 
 class InputWidget:

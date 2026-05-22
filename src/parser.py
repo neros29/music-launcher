@@ -2,6 +2,16 @@ from typing import Dict, List, Optional
 from enum import Enum, auto
 import re
 
+class Pair:
+    def __init__(self, key: str, data_type: str, data) -> None:
+        self.key = key
+        self.data_type = data_type
+        self.data = data
+
+class Operator:
+    def __init__(self, data) -> None:
+        self.data = data
+
 class ParserState(Enum):
     """Defines the possible states of our query parser."""
     SEARCHING = auto()   # Looking for the start of a key or value

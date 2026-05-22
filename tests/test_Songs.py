@@ -1,10 +1,10 @@
 from sys import path
 path.append("src/")
 
-from query import Data, Song
+from query import Songs, Song
 
 def test_Data():
-    data = Data([Song(i, DATA[i]) for i in DATA])
+    data = Songs([Song(i, DATA[i]) for i in DATA])
 
     values = data.fuzz("title", "arent we all teh worst")
     assert values[0] == "Aren't We All The Worst (Live Version)", "data.fuzz test failed"
@@ -25,7 +25,7 @@ def test_Data():
     assert len(values) == 13, f"data.get_values test failed returning {len(values)=}"
 
 
-    other_data = Data([Song(i, DATA) for i in DATA][0:5])
+    other_data = Songs([Song(i, DATA) for i in DATA][0:5])
     values = data.concat_and(other_data)
     assert values.data == data.data[0:5], f"data.concat_and test failed returning {values.data=}"
 
@@ -34,8 +34,8 @@ def test_Data():
     values = data.concat_or(other_data)
     assert values.data == data.data, f"data.concat_or test failed returning {values.data=}"
 
-    other_data = Data([Song(i, DATA) for i in DATA][5:])
-    data1 = Data([Song(i, DATA) for i in DATA][:5])
+    other_data = Songs([Song(i, DATA) for i in DATA][5:])
+    data1 = Songs([Song(i, DATA) for i in DATA][:5])
     values = data1.concat_and(other_data)
     assert len(values.data) == 0, f"data.concat_and test failed returning {values.data=}"
 

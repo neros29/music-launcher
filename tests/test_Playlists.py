@@ -1,9 +1,9 @@
 from sys import path
 path.append("src/")
-from query import Data, Song, Playlist
+from query import Songs, Song, Playlist
 
 def test_Playlists():
-    data = Data([Song(i, OUTHER_DATA[i]) for i in OUTHER_DATA])
+    data = Songs([Song(i, OUTHER_DATA[i]) for i in OUTHER_DATA])
     playlist = Playlist(data, "Appetite For Destruction")
     assert playlist.score == 0.6, f"Playlists._get_artist faild with return {playlist.score=}"
     assert playlist.artist == "Guns N' Roses", f"Playlists._get_artist faild with return {playlist.artist=}"

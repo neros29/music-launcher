@@ -1,7 +1,7 @@
 from sys import path
 path.append("src/")
 from pathlib import Path
-from query import Query, Playlist, Data, Song
+from query import Query, Playlist, Songs, Song
 from queryRunner import QueryRunner
 from parser import Parser
 from playBackController import PlayBackController
@@ -9,11 +9,19 @@ from playBackController import PlayBackController
 
 query = Query(Path("~/Documents/projects/music/data/db.json").expanduser())
 qr = QueryRunner(query)
-pbc = PlayBackController("/tmp/mpv")
+file = "/tmp/mpv"
+try:
+    pbc = PlayBackController(file)
+except FileNotFoundError:
+    print(f"File {file} dose not exist. Please make sure that mpv is running in ipc server mode with the correct socket path.")
+    exit()
 parser = Parser()
 
 while True:
-    q = input("Your query> ")
+    try:
+        q = input("Your query> ")
+    except KeyboardInterrupt:
+        break
     if q == "/exit":
         break
     ast = parser.parse(q)
@@ -37,7 +45,11 @@ while True:
             print(f"{index}: {result}")
             songs.append(result.name)
             index += 1
-    i = int(input("Index you want to hear: "))
+    try:
+        i = int(input("Index you want to hear: "))
+    except KeyboardInterrupt:
+        print()
+        continue
     if type(songs[0]) == Playlist:
         print(f"playing: {songs[i].playlist_name}")
         pbc.replace_playlist(songs[i].get_playable())
