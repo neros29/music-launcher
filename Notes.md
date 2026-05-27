@@ -19,3 +19,9 @@ get m3u files loading correctly.
 
 ### TODAY
 refactor parser to be better for input.
+
+### Lexer Rules:
+type: a word in the type_keywords dict with any ammount of white spaces and a : following it eg, <type_keyword><ws*><":">
+op: a word in the op_keywords dict with any ammont of white spaces and a type eg, <op_keyword><ws*><type_keyword><ws*><":">
+value: everything that dose not match an op or type
+

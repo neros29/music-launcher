@@ -1,9 +1,9 @@
 from typing import List, Optional
-from parser import Parser
+import re
 
 class Token:
-    def __init__(self, end_idx: int, value: str) -> None:
-        self.type = None
+    def __init__(self, end_idx: int, value: str, token_type: Optional[str] = None) -> None:
+        self.type = token_type
         self.start_idx = end_idx - len(value)
         self.end_idx = end_idx
         self.value = value
@@ -64,7 +64,6 @@ class Lexer:
 
         self.value: Optional[Token] = None
 
-        self.string = None
         self.escape = False
         self.operator = None
         self.key = None
@@ -105,6 +104,7 @@ class Lexer:
             self.operator = None
 
     def _get_tokens(self, string: str):
+        yield Token(len("SOF") - 1, "SOF", "scopein")
         buffer = ""
         for index, char in enumerate(string):
             if char in self.seperators:
@@ -116,7 +116,16 @@ class Lexer:
                 buffer += char
         if len(buffer) > 0:
             yield Token(len(string), buffer)
-        yield Token(len(string) + 1, "EOF")
+        yield Token(len(string) + len("EOF"), "EOF", "scopeout")
+
+    def printable(self, tokens: Tokens):
+        new = Tokens()
+        for token in tokens:
+            if token.type == "scopeout" or token.type == "scopein":
+                if token.value == "EOF" or token.value == "SOF":
+                    continue
+            new.append(token)
+        return new
 
     def lex(self, string: str):
         self.tokens = Tokens()
@@ -125,7 +134,10 @@ class Lexer:
                 self._value_add(token)
                 self.escape = False
 
-            elif token.value == "EOF":
+            elif token.value == "SOF" and token.type is not None:
+                self.tokens.append(token)
+
+            elif token.value == "EOF" and token.type is not None:
                 if self.operator:
                     if self.operator.value.strip() in self.seperators:
                         self.operator.set_type(self.seperators[self.operator.value.strip()])
@@ -135,30 +147,13 @@ class Lexer:
                 elif self.key:
                     self._value_add(self.key)
                 self._push_value()
-
-            elif self.string:
-                if token in self.seperators:
-                    sep_type = self.seperators[token.value]
-                    if sep_type == "string" and token == self.string:
-                        if self.value is not None:
-                            self._value_add(token)
-                            self.value.set_type("string")
-                            self.tokens.append(self.value)
-                            self.value = None
-                            self.string = None
-                    elif sep_type == "esc":
-                        self.escape = True
-                        self._value_add(token)
-                    else:
-                        self._value_add(token)
-                else:
-                    self._value_add(token)
+                self.tokens.append(token)
 
             elif self.key:
                 if token in self.seperators:
-                    if self.seperators[token] == "ws":
+                    if self.seperators[token.value] == "ws":
                         self.key += token
-                    elif self.seperators[token] == "sep":
+                    elif self.seperators[token.value] == "sep":
                         self.key += token
                         self._push_value()
                         self._append_op()
@@ -174,7 +169,7 @@ class Lexer:
                     self._value_add(token)
 
             elif self.operator:
-                if token in self.seperators and self.seperators[token] == "ws":
+                if token in self.seperators and self.seperators[token.value] == "ws":
                     self.operator += token
                 elif token in self.type_keywords:
                     self.key = token
@@ -184,11 +179,7 @@ class Lexer:
             else:
                 if token in self.seperators:
                     sep_type = self.seperators[token.value]
-                    if sep_type == "string":
-                        if self.value is None or self.value.value.strip() == "":
-                            self.string = token
-                        self._value_add(token)
-                    elif sep_type == "esc":
+                    if sep_type == "esc":
                         self.escape = True
                     elif sep_type == "scopein" or sep_type == "scopeout":
                         self.operator = token
@@ -206,10 +197,40 @@ class Lexer:
 
 
 if __name__ == "__main__":
-    string = 'artist: "*iron*" (title: title or artist i : & | and outher or or or title : "Left*")'
+    string = 'playlists: artist: "*iron*" songs:(title: title or artist i : & | and outher or or or title : "Left*")'
     print(f"{string=}")
-    parser = Parser()
-    tk = Lexer(parser.type_keywords, parser.operator_keywords, parser.seperators)
+    type_keywords = {
+            "artist": "artist",
+            "title": "title",
+            "playlists": "playlists",
+            "playlist": "playlists",
+            "album": "playlists",
+            "albums": "playlists",
+            "date": "date",
+            "genre": "genre",
+            "duration": "duration",
+            "songs": "songs",
+            "song": "songs"
+            }
+    operator_keywords = {
+            "and": "and",
+            "or": "or",
+            "|": "or",
+            "&": "and"
+            }
+
+    seperators= {
+            " ": "ws",
+            "\n": "ws",
+            "\t": "ws",
+            "\\": "esc",
+            '"': "string",
+            "'": "string",
+            ":": "sep",
+            "(": "scopein",
+            ")": "scopeout"
+            }
+    tk = Lexer(type_keywords, operator_keywords, seperators)
     tokens: Tokens = tk.lex(string)
     colorized = ""
     colors = {

@@ -1,15 +1,33 @@
+import enum
 from typing import Dict, List, Optional
+from lexer import Token, Lexer, Tokens
 import re
 
 class Pair:
-    def __init__(self, key: str, data_type: str, data) -> None:
+    def __init__(self, key: Optional[str] = None, data_type: Optional[str] = None, data = []) -> None:
         self.key = key
         self.data_type = data_type
         self.data = data
 
+    def __repr__(self) -> str:
+        if isinstance(self.data, list):
+            string = f"('{self.key}' :["
+            for i in self.data:
+                string += f"{i.__repr__()}"
+                if i != self.data[-1]:
+                    string += ", "
+
+            return string + "])"
+        else:
+            return f"('{self.key}': '{self.data}')"
+
+
 class Operator:
     def __init__(self, data) -> None:
         self.data = data
+
+    def __repr__(self) -> str:
+        return f"('operator': '{self.data}')"
 
 
 class Parser:
@@ -45,99 +63,121 @@ class Parser:
                 "(": "scopein",
                 ")": "scopeout"
                 }
+        self.def_key = "title"
 
-
-    def _third_pass(self, tokens: List):
-        new_tokens = []
-        state = ParserState.SEARCHING
-        buffer = {}
-        for token in tokens:
-            if state == ParserState.SEARCHING:
-                if "key" in token:
-                    buffer["key"] = token["key"]
-                    state = ParserState.KEY
-                else:
-                    new_tokens.append(token)
-            elif state == ParserState.KEY:
-                if "value" in token:
-                    # Group 1 captures which quote was used; \1 ensures the exact same quote ends the string
-                    string = re.search(r"^([\"'])(.*)\1$", token["value"])
-                    if string:
-                        buffer["re"] = string.group(2)
-                    else:
-                        buffer["fuzz"] = token["value"]
-                    new_tokens.append({"pair": buffer})
-                    buffer = {}
-                    state = ParserState.SEARCHING
-                else:
-                    new_tokens.append({"key": buffer["key"]})
-                    buffer = {}
-                    if "key" in token:
-                        buffer["key"] = token["key"]
-                        state = ParserState.KEY
-                    else:
-                        new_tokens.append(token)
-                        state = ParserState.SEARCHING
-        return new_tokens
-
-    def _final_pass(self, tokens: List):
-        ast = {}
-        query = []
-        for token in tokens:
-            if not len(query) % 2 == 0:
-                if "operator" in token and token["operator"] == "|":
-                    query.append("or")
-                elif "operator" in token and token["operator"] == "&":
-                    query.append("and")
-
-                elif "pair" in token:
-                    query.append("and")
-                    if token["pair"]["key"] not in self.song_key_words:
-                        token["pair"]["key"] = "title"
-                    query.append(token["pair"])
+    def _get_value(self, token: Token):
+        if token.type == "type":
+            value = token.value.replace(":", "").replace(" ", "")
+        elif token.type == "value":
+            pattern = r"^\s*(\"|')(.*)(\1)\s*$"
+            results = re.search(pattern, token.value)
+            if results:
+                value = results.group(2)
             else:
-                if "pair" in token:
-                    if token["pair"]["key"] not in self.song_key_words:
-                        token["pair"]["key"] = "title"
-                    query.append(token["pair"])
-                elif "key" in token:
-                    ast["results"] = token["key"]
-        if query == []:
-            return None
-        ast["query"] = query
-        if "results" not in ast or ast["results"] not in self.type_key_words:
-            ast["results"] = "playlists"
+                value = token.value.strip()
+        else:
+            value = token.value.strip()
+        return value
+
+    def _first_pass(self, tokens: Tokens):
+        results = []
+        current = Pair()
+        scope = Tokens()
+        scopes = []
+        for token in tokens:
+            if scopes == []:
+                if token.type == "type":
+                    if current.key is None:
+                        current.key = self._get_value(token)
+                    else:
+                        scopes.append("imp")
+                        scope.append(token)
+
+                elif token.type == "scopein":
+                    scopes.append(self._get_value(token))
+
+                elif token.type == "value":
+                    if current.key is None:
+                        current.key = self.def_key
+                    current.data_type = "value"
+                    current.data = self._get_value(token)
+                    results.append(current)
+                    current = Pair()
+
+                elif token.type == "operator":
+                    results.append(Operator(self.operator_keywords[token.value.strip()]))
+                    current = Pair()
+
+                elif len(scope.tokens) > 0:
+                    if current.key is None:
+                        current.key = "songs"
+                    current.data_type = "scope"
+                    current.data = self._first_pass(scope)
+                    results.append(current)
+                    current = Pair()
+                    scope = Tokens()
+
+                    
+            elif token.type == "scopein":
+                scopes.append(self._get_value(token))
+                scope.append(token)
+
+            elif token.type == "scopeout":
+                scopes.pop()
+                if token.value == "EOF":
+                    scopes = []
+                scope.append(token)
+
+            else:
+                scope.append(token)
+
+        if len(scope.tokens) > 0:
+            if current.key is None:
+                current.key = "songs"
+            current.data_type = "scope"
+            current.data = self._first_pass(scope)
+            results.append(current)
+            current = Pair()
+
+        if len(results) == 1:
+            return results[0]
+        return results
+
+    def _secound_pass(self, ast: Pair):
+        assert isinstance(ast, Pair), f"{ast=}"
+        if ast.data_type == "scope":
+            data = []
+            assert isinstance(ast.data, List), f"{ast.data=}"
+            for index, pair in enumerate(ast.data):
+                if index % 2 != 0:
+                    if isinstance(pair, Operator):
+                        data.append(pair)
+                    else:
+                        data.append(Operator("and"))
+                        data.append(self._secound_pass(pair))
+                else:
+                    assert isinstance(pair, Pair), f"{pair}, {ast}"
+                    data.append(self._secound_pass(pair))
+            ast.data = data
         return ast
-            
-    def parse(self, string: str) -> Optional[Dict]:
-        result = self._final_pass(self._third_pass(self._secound_pass(self._first_pass(string))))
+
+
+    def parse(self, tokens: Tokens) -> Optional[Pair]:
+        result = self._secound_pass(self._first_pass(tokens))
         if result:
             return result
 
 if __name__ == "__main__":
-    string = 'artist: "*iron*" (title: title or artist i : & | and outher or or or title : "Left*")'
-    string = input(">")
+    string = 'songs: artist: ironmouse (title: "left right*" or title : "devil")'
+    # string = input(">")
+    correct_ast = Pair("songs", "scope", [Pair("artist", "fuzz", "ironmouse"), Operator("and"), Pair("songs", "scope", [Pair("title", "re", "left right*"), Operator("or"), Pair("title", "re", "devil")])])
     print(f"{string=}")
     parser = Parser()
-    tk = Tokenizer(parser.type_keywords, parser.operator_keywords, parser.seperators)
-    raw_tokens = parser._first_pass(string) 
-    tokens: Tokens = tk.tokenize(raw_tokens)
-    colorized = ""
-    colors = {
-            "type": "\x1b[38;2;255;0;0m",
-            "string": "\x1b[38;2;0;255;0m",
-            "value": "\x1b[38;2;255;255;0m",
-            "operator": "\x1b[38;2;0;0;255m",
-            "scopein": "\x1b[38;2;0;0;255m",
-            "scopeout": "\x1b[38;2;0;0;255m",
-            "ws": "",
-            }
-    for token in tokens:
-        colorized += colors[token.type] + token.value + "\x1b[0m"
-
-    print(f"string='{colorized}'")
+    tk = Lexer(parser.type_keywords, parser.operator_keywords, parser.seperators)
+    tokens: Tokens = tk.lex(string)
     print(f"{tokens=}")
-    # third = parser._third_pass(secound)
-    # print(f"{third=}")
-    # result = parser._final_pass(third)
-    # print(f"{result=}")
+    secound = parser._first_pass(tokens)
+    print(f"{secound=}")
+    results = parser.parse(tokens)
+    print(f"{results=}")
+    print(f"results={correct_ast}")
