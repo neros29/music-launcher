@@ -78,7 +78,6 @@ class Parser:
         else:
             value = token.value.strip()
         return value
-
     def _first_pass(self, tokens: Tokens):
         results = []
         current = Pair()
