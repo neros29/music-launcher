@@ -209,6 +209,7 @@ class Lexer:
     def _in_EOF(self):
         token = self.tokens[self.iter]
         if token.basic_type == basic_types.EOF:
+            self.buffer = token
             return True
         return False
 
@@ -228,10 +229,19 @@ class Lexer:
                 self.iter += 1
                 if self._in_S_VALUE():
                     return True
-        elif self.state == IN_D_STRING:
-            if token.basic_type == basic_types.D_QUOTES:
+        elif self.state != BEFORE_STRING:
+            if self.state == IN_S_STRING:
+                quote_type = basic_types.S_QUOTES
+            elif self.state == IN_D_STRING:
+                quote_type = basic_types.D_QUOTES
+            else: 
+                quote_type = basic_types.D_QUOTES
+            if token.basic_type == quote_type:
                 self._buffer_add()
                 return True
+            elif token.basic_type == basic_types.ESC:
+                self._buffer_add()
+                self.iter += 1
             elif token.basic_type == basic_types.EOF:
                 return False
             self._buffer_add()
@@ -247,6 +257,11 @@ class Lexer:
                 self.results[-1] += token
             else:
                 self._buffer_add()
+        else:
+            raise SyntaxError("How did this happen?")
+        if token.basic_type == basic_types.ESC:
+            self.iter += 1
+            self._in_VALUE()
         return True
 
     def _in_L_OP(self):
@@ -258,7 +273,8 @@ class Lexer:
                 return True
             self._buffer_add()
             self.iter += 1
-            if self._in_R_OP():
+            print(f'{self.buffer=}')
+            if self._in_L_OP():
                 return True
         return False
 
@@ -319,8 +335,8 @@ class Lexer:
         return self.results
 
 if __name__ == "__main__":
-    string = 'playlists: artist: "*iron*" songs:(title: title or | : or stuff and or title : "Left*")'
-    string = input(">")
+    string = 'playlists: artist: "*iron*" songs:(title: title or | : or stuff and or title  : "Left*")'
+    string = 'playlists: (title: left right)'
     type_keywords = {
             "artist": "artist",
             "title": "title",
