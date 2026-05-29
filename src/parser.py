@@ -1,7 +1,5 @@
-import enum
-from typing import Dict, List, Optional
-from lexer import Token, Lexer, Tokens
-import re
+from typing import Optional
+from lexer import Token, Tokens, token_types, basic_types, Lexer
 
 class Pair:
     def __init__(self, key: Optional[str] = None, data_type: Optional[str] = None, data = []) -> None:
@@ -11,7 +9,7 @@ class Pair:
 
     def __repr__(self) -> str:
         if isinstance(self.data, list):
-            string = f"('{self.key}' :["
+            string = f"('{self.key}': ["
             for i in self.data:
                 string += f"{i.__repr__()}"
                 if i != self.data[-1]:
@@ -22,161 +20,182 @@ class Pair:
             return f"('{self.key}': '{self.data}')"
 
 
-class Operator:
-    def __init__(self, data) -> None:
-        self.data = data
-
-    def __repr__(self) -> str:
-        return f"('operator': '{self.data}')"
-
-
 class Parser:
-    def __init__(self) -> None:
-        self.type_keywords = {
-                "artist": "artist",
-                "title": "title",
-                "playlists": "playlists",
-                "playlist": "playlists",
-                "album": "playlists",
-                "albums": "playlists",
-                "date": "date",
-                "genre": "genre",
-                "duration": "duration",
-                "songs": "songs",
-                "song": "songs"
+    def __init__(self, type_keywords, operator_keywords) -> None:
+        self.type_keywords = type_keywords
+        self.operator_keywords = operator_keywords
+        self.valid_output_paths = {
+                token_types.SOF     : [token_types.TYPE, token_types.EOF],
+                token_types.TYPE    : [token_types.L_OP, token_types.VALUE, token_types.S_VALUE],
+                token_types.VALUE   : [token_types.OP, token_types.R_OP, token_types.EOF],
+                token_types.S_VALUE : [token_types.OP, token_types.R_OP,  token_types.EOF],
+                token_types.OP      : [token_types.TYPE],
+                token_types.L_OP    : [token_types.TYPE],
+                token_types.R_OP    : [token_types.TYPE, token_types.R_OP, token_types.EOF],
                 }
-        self.operator_keywords = {
-                "and": "and",
-                "or": "or",
-                "|": "or",
-                "&": "and"
+        self.tokens = Tokens()
+        self.results = Pair()
+        self.scope_stack = []
+        self.index = 0
+        self.defulats = {
+                token_types.TYPE: " artist:",
+                token_types.L_OP: "(",
+                token_types.R_OP: ")",
+                token_types.OP: " and ",
                 }
 
-        self.seperators= {
-                " ": "ws",
-                "\n": "ws",
-                "\t": "ws",
-                "\\": "esc",
-                '"': "string",
-                "'": "string",
-                ":": "sep",
-                "(": "scopein",
-                ")": "scopeout"
-                }
-        self.def_key = "title"
+    def _get_valid_paths(self):
+        token = self.tokens[self.index -1]
+        if token.token_type is not None:
+            return self.valid_output_paths[token.token_type]
+        raise SyntaxError(f"Token '{token}' has no token_type")
+
+    def _insert_token(self, token_type: token_types):
+        self.tokens.insert(self.index, Token((self.tokens[self.index - 1].start_idx[0], self.tokens[self.index - 1].start_idx[1] + 1), self.defulats[token_type], token_type=token_type, virtual=True))
+        self._manage_scope()
+        # self.index += 1
+
+    def _manage_scope(self):
+        token = self.tokens[self.index]
+        if token.token_type == token_types.R_OP:
+            if len(self.scope_stack) > 0:
+                self.scope_stack.pop()
+
+        if token.token_type == token_types.L_OP:
+            self.scope_stack.append(token.value)
+
+    def _fix_tokens(self):
+        valid = None
+        while True:
+            token = self.tokens[self.index]
+            if token.basic_type == basic_types.EOF:
+                if 0 < len(self.scope_stack):
+                    self.scope_stack.pop()
+                    self._insert_token(token_types.R_OP)
+                    self.index += 1
+                    continue
+                else:
+                    break
+            self._manage_scope()
+            if valid is not None and token.token_type not in valid:
+                self._insert_token(valid[0])
+
+            self.index += 1
+            valid = self._get_valid_paths()
+
+    #TODO:  artist: selena gomez and aritst: ironmouse -> songs: (artist: selena gomez and aritst: ironmouse)
+    def _get_type(self, token: Token):
+        return self.type_keywords[token.value.replace(":", "").replace(" ", "")]
 
     def _get_value(self, token: Token):
-        if token.type == "type":
-            value = token.value.replace(":", "").replace(" ", "")
-        elif token.type == "value":
-            pattern = r"^\s*(\"|')(.*)(\1)\s*$"
-            results = re.search(pattern, token.value)
-            if results:
-                value = results.group(2)
-            else:
-                value = token.value.strip()
-        else:
-            value = token.value.strip()
-        return value
-    def _first_pass(self, tokens: Tokens):
-        results = []
-        current = Pair()
-        scope = Tokens()
-        scopes = []
-        for token in tokens:
-            if scopes == []:
-                if token.type == "type":
-                    if current.key is None:
-                        current.key = self._get_value(token)
-                    else:
-                        scopes.append("imp")
-                        scope.append(token)
+        return token.value.strip().replace("\\", "")
 
-                elif token.type == "scopein":
-                    scopes.append(self._get_value(token))
+    def _get_s_value(self, token: Token):
+        return token.value.strip()[1:-1]
 
-                elif token.type == "value":
-                    if current.key is None:
-                        current.key = self.def_key
-                    current.data_type = "value"
-                    current.data = self._get_value(token)
-                    results.append(current)
-                    current = Pair()
+    def _get_pair(self):
+        pairs = []
+        pair = Pair()
 
-                elif token.type == "operator":
-                    results.append(Operator(self.operator_keywords[token.value.strip()]))
-                    current = Pair()
+        while True:
+            token = self.tokens[self.index]
+            if token.token_type == token_types.L_OP:
+                if pair.data == []:
+                    self.index += 1
+                    pair.data = self._get_pair()
+                    pair.data_type = "scope"
+                    pairs.append(pair)
+                    pair = Pair()
+                    continue
+            elif token.token_type == token_types.R_OP:
+                break
 
-                elif len(scope.tokens) > 0:
-                    if current.key is None:
-                        current.key = "songs"
-                    current.data_type = "scope"
-                    current.data = self._first_pass(scope)
-                    results.append(current)
-                    current = Pair()
-                    scope = Tokens()
+            elif token.token_type == token_types.EOF:
+                break
 
-                    
-            elif token.type == "scopein":
-                scopes.append(self._get_value(token))
-                scope.append(token)
+            elif token.token_type == token_types.TYPE:
+                pair.key = self._get_type(token)
 
-            elif token.type == "scopeout":
-                scopes.pop()
-                if token.value == "EOF":
-                    scopes = []
-                scope.append(token)
+            elif token.token_type == token_types.VALUE:
+                pair.data = self._get_value(token)
+                pair.data_type = "fuzz"
+                pairs.append(pair)
+                pair = Pair()
 
-            else:
-                scope.append(token)
+            elif token.token_type == token_types.S_VALUE:
+                pair.data = self._get_s_value(token)
+                pair.data_type = "re"
+                pairs.append(pair)
+                pair = Pair()
 
-        if len(scope.tokens) > 0:
-            if current.key is None:
-                current.key = "songs"
-            current.data_type = "scope"
-            current.data = self._first_pass(scope)
-            results.append(current)
-            current = Pair()
+            elif token.token_type == token_types.OP:
+                pair.data = self.operator_keywords[token.value.strip()]
+                pair.data_type = "operator"
+                pairs.append(pair)
+                pair = Pair()
+            self.index += 1
 
-        if len(results) == 1:
-            return results[0]
-        return results
+        return pairs
+        
 
-    def _secound_pass(self, ast: Pair):
-        assert isinstance(ast, Pair), f"{ast=}"
-        if ast.data_type == "scope":
-            data = []
-            assert isinstance(ast.data, List), f"{ast.data=}"
-            for index, pair in enumerate(ast.data):
-                if index % 2 != 0:
-                    if isinstance(pair, Operator):
-                        data.append(pair)
-                    else:
-                        data.append(Operator("and"))
-                        data.append(self._secound_pass(pair))
-                else:
-                    assert isinstance(pair, Pair), f"{pair}, {ast}"
-                    data.append(self._secound_pass(pair))
-            ast.data = data
-        return ast
+    def parse(self, tokens: Tokens):
+        self.tokens = tokens
 
+        self.results = Pair()
+        self.scope_stack = []
+        self.index = 0
 
-    def parse(self, tokens: Tokens) -> Optional[Pair]:
-        result = self._secound_pass(self._first_pass(tokens))
-        if result:
-            return result
+        self._fix_tokens()
+        self.index = 0
+        self.results = Pair(self.defulats[token_types.TYPE], "scope", self._get_pair())
+        return self.results
 
 if __name__ == "__main__":
-    string = 'songs: artist: ironmouse (title: "left right*" or title : "devil")'
-    # string = input(">")
-    correct_ast = Pair("songs", "scope", [Pair("artist", "fuzz", "ironmouse"), Operator("and"), Pair("songs", "scope", [Pair("title", "re", "left right*"), Operator("or"), Pair("title", "re", "devil")])])
+    type_keywords = {
+            "artist": "artist",
+            "title": "title",
+            "playlists": "playlists",
+            "playlist": "playlists",
+            "album": "playlists",
+            "albums": "playlists",
+            "date": "date",
+            "genre": "genre",
+            "duration": "duration",
+            "songs": "songs",
+            "song": "songs"
+            }
+
+    operator_keywords = {
+            "and": "and",
+            "or": "or",
+            "|": "or",
+            "&": "and"
+            }
+
+    seperators= {
+            " ": basic_types.WS,
+            "\n": basic_types.WS,
+            "\t": basic_types.WS,
+            "\\": basic_types.ESC,
+            '"': basic_types.D_QUOTES,
+            "'": basic_types.S_QUOTES,
+            ":": basic_types.SEP,
+            "(": basic_types.L_OP,
+            ")": basic_types.R_OP
+            }
+    string = 'playlists: artist: "*iron*" (title: king | title: "Left*")'
     print(f"{string=}")
-    parser = Parser()
-    tk = Lexer(parser.type_keywords, parser.operator_keywords, parser.seperators)
+
+    parser = Parser(type_keywords, operator_keywords)
+    tk = Lexer(type_keywords, operator_keywords, seperators)
     tokens: Tokens = tk.lex(string)
-    print(f"{tokens=}")
-    secound = parser._first_pass(tokens)
-    print(f"{secound=}")
+    parser.tokens = tokens
+    parser._fix_tokens()
+    secound = parser.tokens
+    print("string='", end="")
+    for i in secound:
+        print(i, end="")
+    print("'")
+    parser.index = 0
     results = parser.parse(tokens)
     print(f"{results=}")
-    print(f"results={correct_ast}")

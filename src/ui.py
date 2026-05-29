@@ -6,7 +6,8 @@ from listWidget import ListWidget, Token, Element
 class SearchBar(InputWidget):
     def __init__(self, size, offset, tui: Tui, fg, bg) -> None:
         background = tui.append(size, offset, " ", 0)
-        background.fill_bg(bg[0] - 70, bg[1] - 70, bg[2] - 30)
+            #3d4253
+        background.fill_bg(0x3d, 0x42, 0x53)
         surface = tui.append([size[0] - 4, size[1] - 2], [offset[0] + 2, offset[1] + 1], " ", 100)
         super().__init__(surface, bg, fg)
 
@@ -19,9 +20,8 @@ class Ui:
     def __init__(self) -> None:
         self.tui = Tui()
         self.screen_size = self.tui.get_screen_size()
-        self.bg = [200, 200, 200]
-        self.fg = [15, 15, 15]
-
+        self.bg = [0x15, 0x16, 0x1b]
+        self.fg = [0xcf, 0xce, 0xd4]
         self.search_bar_size = [self.screen_size[0] - 10, 3]
         self.search_bar_offset = [(self.screen_size[0] - self.search_bar_size[0]) // 2, (self.screen_size[1] - self.search_bar_size[1]) // 7]
 

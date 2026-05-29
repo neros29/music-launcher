@@ -4,7 +4,7 @@ import pytest
 from sys import path
 path.append("src/")
 from queryRunner import QueryRunner
-from parser import Pair, Operator
+from parser import Pair
 
 
 @pytest.fixture
@@ -36,7 +36,7 @@ def test_and(parser, mock_root):
     song1 = MagicMock()
     song2 = MagicMock()
     mock_root.get_songs_batch.side_effect = [song1, song2]
-    ast = Pair("playlists", "scope", [Pair("title", "fuzz", "left right"), Operator("and"), Pair("title", "fuzz", "right left")])
+    ast = Pair("playlists", "scope", [Pair("title", "fuzz", "left right"), Pair(None,"operator","and"), Pair("title", "fuzz", "right left")])
     parser.run(ast)
     song1.concat_and.assert_called_once_with(song2) 
 
@@ -44,7 +44,7 @@ def test_or(parser, mock_root):
     song1 = MagicMock()
     song2 = MagicMock()
     mock_root.get_songs_batch.side_effect = [song1, song2]
-    ast = Pair("playlists", "scope", [Pair("title", "fuzz", "left right"), Operator("or"), Pair("title", "fuzz", "right left")])
+    ast = Pair("playlists", "scope", [Pair("title", "fuzz", "left right"), Pair(None,"operator","or"), Pair("title", "fuzz", "right left")])
     parser.run(ast)
     song1.concat_or.assert_called_once_with(song2) 
 
@@ -53,7 +53,7 @@ def test_get_playlists(parser, mock_root):
     song2 = MagicMock()
     mock_root.get_songs_batch.side_effect = [song1, song2]
     song1.concat_or.return_value = "correct"
-    ast = Pair("playlists", "scope", [Pair("title", "fuzz", "left right"), Operator("or"), Pair("title", "fuzz", "right left")])
+    ast = Pair("playlists", "scope", [Pair("title", "fuzz", "left right"), Pair(None,"operator","or"), Pair("title", "fuzz", "right left")])
     parser.run(ast)
     mock_root.get_playlists.assert_called_once_with("correct")
 

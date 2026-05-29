@@ -7,7 +7,9 @@ from queue import Queue
 from playBackController import PlayBackController
 from threading import Thread, Lock
 from parser import Parser
+from lexer import Lexer, token_types
 from copy import deepcopy
+import langdef
 import logging
 import time
 from ui import Ui
@@ -17,7 +19,8 @@ class Main:
         logging.getLogger('thefuzz').setLevel(logging.ERROR)
         self.log = open("logs/log", "a")
         self.running = True
-        self.parser = Parser()
+        self.parser = Parser(langdef.type_keywords, langdef.operator_keywords)
+        self.lexer = Lexer(langdef.type_keywords, langdef.operator_keywords, langdef.seperators)
         self.db_path = "/home/neros/Documents/projects/music/data/db.json"
         self.query = Query(self.db_path)
         self.qr = QueryRunner(self.query)
@@ -78,7 +81,8 @@ class Main:
         self.curser_index = max(0, self.curser_index - 1)
 
     def get_options(self):
-        ast = self.parser.parse(self.text)
+        tokens = self.lexer.lex(self.text)
+        ast = self.parser.parse(tokens)
         if ast is None:
             self.options = None
             return
@@ -120,7 +124,7 @@ class Main:
                 elif type(result) == Song:
                     name = f"song: {result.get_values('title')[0]}"
                     artist = f"artist: {result.get_values('artist')[0]}"
-                    duration = f"duration: {len(result.get_values('duration')[0])}"
+                    duration = f"duration: {result.get_values('duration')[0]}"
                     first_space = ((width - len(artist)) // 2) - len(name)
                     secound_space = (width - (first_space + len(name) + len(artist) + len(duration)))
                     playlist_text = name + " "* first_space + artist + " " * secound_space + duration
@@ -131,10 +135,12 @@ class Main:
         results = []
         selected = min(len(text) - 1, self.selected)
         for y, line in enumerate(text):
+            if y > 10:
+                continue
             element = []
             for ch in line:
                 if y == selected:
-                    element.append(Token(self.ui.fg, [self.ui.bg[0] - 70, self.ui.bg[1] - 70, self.ui.bg[2] - 30], ch))
+                    element.append(Token(self.ui.fg, [0x3d, 0x42, 0x53], ch))
                 else:
                     element.append(Token(self.ui.fg, self.ui.bg, ch))
             results.append(Element(element))
@@ -160,8 +166,18 @@ class Main:
 
     def draw_text(self):
         tokens = []
-        for num, ch in enumerate(self.text):
-            tokens.append(Token(self.ui.fg, self.ui.bg, ch))
+        colors = {
+            token_types.TYPE: [0xd2, 0x8c, 0x89],  
+            token_types.S_VALUE: [0x3e, 0x87, 0xa3], 
+            token_types.VALUE: [0xe2, 0xb3, 0x70],  
+            token_types.OP: [0x81, 0xa8, 0xe6],  
+            token_types.L_OP: [0x81, 0xa8, 0xe6],
+            token_types.R_OP: [0x81, 0xa8, 0xe6],
+        }
+        for token in self.lexer.lex(self.text):
+            if not token.virtual:
+                for ch in token.value:
+                    tokens.append(Token(colors[token.token_type], self.ui.bg, ch))
         ch = " "
         if 0 <= self.curser_index < len(self.text):
             ch = tokens.pop(self.curser_index).character

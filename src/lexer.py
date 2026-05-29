@@ -1,5 +1,6 @@
 from typing import List, Optional
 from enum import Enum, auto
+from copy import deepcopy
 
 class basic_types(Enum):
     SEP = auto()
@@ -63,6 +64,12 @@ class Tokens:
     def append(self, token: Token):
         self.data.append(token)
 
+    def insert(self, index, token: Token):
+        self.data.insert(index, token)
+
+    def clear(self):
+        self.data.clear()
+
     def pop(self) -> Token:
         return self.data.pop()
 
@@ -79,7 +86,7 @@ class Tokens:
     def __repr__(self) -> str:
         results = "["
         for i in range(0, len(self.data)):
-            results += f"({self.data[i].start_idx}: '{self.data[i].basic_type if self.data[i].token_type is None else self.data[i].token_type}' = '{self.data[i].value}')"
+            results += f"['{self.data[i].basic_type.name if self.data[i].token_type is None else self.data[i].token_type.name}': '{self.data[i].value}']"
             if i != len(self.data) -1:
                 results += ", "
         results += "]"
@@ -111,7 +118,7 @@ class Lexer:
         self.guess: token_types = token_types.TYPE
         self.last_guess = 0
         self.iter_stack: List[int] = []
-        self.last_guess_stack: List[int] = [0]
+        self.last_guess_stack: List[int] = []
 
     def split_string(self, string: str):
         results = Tokens()
@@ -127,7 +134,7 @@ class Lexer:
                 buffer += char
         if len(buffer) > 0:
             results.append(Token((len(string) - len(buffer), 0), buffer, basic_types.WORD))
-        results.append(Token((len(string), 0), "", basic_types.EOF, token_types.SOF, virtual=True))
+        results.append(Token((len(string), 0), "", basic_types.EOF, token_types.EOF, virtual=True))
         return results
 
     def _get_valid_paths(self):
@@ -163,48 +170,47 @@ class Lexer:
             self.buffer = self.tokens[self.iter]
 
     def _in_TYPE(self):
-        BEFORE_KEY_WORD = 0
-        AFTER_KEY_WORD  = 1
-        token = self.tokens[self.iter]
-        if self.state == BEFORE_KEY_WORD:
+        while True:
+            BEFORE_KEY_WORD = 0
+            AFTER_KEY_WORD  = 1
+            token = self.tokens[self.iter]
+            if self.state == BEFORE_KEY_WORD:
+                valid = [basic_types.WS, basic_types.WORD]
+                if token.basic_type in valid:
+                    if token.basic_type == basic_types.WORD:
+                        if token.value in self.type_keywords:
+                            self.state = AFTER_KEY_WORD
+                        else:
+                            return False
+                    self._buffer_add()
+                    self.iter += 1
+                    continue
+            elif self.state == AFTER_KEY_WORD:
+                valid = [basic_types.WS, basic_types.SEP]
+                if token.basic_type in valid:
+                    if token.basic_type == basic_types.SEP:
+                        self._buffer_add()
+                        return True
+                    self._buffer_add()
+                    self.iter += 1
+                    continue
+            return False
+
+    def _in_OP(self):
+        while True:
+            token = self.tokens[self.iter]
             valid = [basic_types.WS, basic_types.WORD]
             if token.basic_type in valid:
                 if token.basic_type == basic_types.WORD:
-                    if token.value in self.type_keywords:
-                        self.state = AFTER_KEY_WORD
+                    if token.value in self.operator_keywords:
+                        self._buffer_add()
+                        return True
                     else:
                         return False
                 self._buffer_add()
                 self.iter += 1
-                if self._in_TYPE():
-                    return True
-        elif self.state == AFTER_KEY_WORD:
-            valid = [basic_types.WS, basic_types.SEP]
-            if token.basic_type in valid:
-                if token.basic_type == basic_types.SEP:
-                    self._buffer_add()
-                    return True
-                self._buffer_add()
-                self.iter += 1
-                if self._in_TYPE():
-                    return True
-        return False
-
-    def _in_OP(self):
-        token = self.tokens[self.iter]
-        valid = [basic_types.WS, basic_types.WORD]
-        if token.basic_type in valid:
-            if token.basic_type == basic_types.WORD:
-                if token.value in self.operator_keywords:
-                    self._buffer_add()
-                    return True
-                else:
-                    return False
-            self._buffer_add()
-            self.iter += 1
-            if self._in_OP():
-                return True
-        return False
+                continue
+            return False
 
     def _in_EOF(self):
         token = self.tokens[self.iter]
@@ -214,82 +220,83 @@ class Lexer:
         return False
 
     def _in_S_VALUE(self):
-        BEFORE_STRING = 0
-        IN_D_STRING = 1
-        IN_S_STRING = 2
-        token = self.tokens[self.iter]
-        if self.state == BEFORE_STRING:
-            valid = [basic_types.WS, basic_types.D_QUOTES, basic_types.S_QUOTES]
-            if token.basic_type in valid:
-                if token.basic_type == basic_types.D_QUOTES:
-                    self.state = IN_D_STRING
-                elif token.basic_type == basic_types.S_QUOTES:
-                    self.state = IN_S_STRING
-                self._buffer_add()
-                self.iter += 1
-                if self._in_S_VALUE():
+        while True:
+            BEFORE_STRING = 0
+            IN_D_STRING = 1
+            IN_S_STRING = 2
+            token = self.tokens[self.iter]
+            if self.state == BEFORE_STRING:
+                valid = [basic_types.WS, basic_types.D_QUOTES, basic_types.S_QUOTES]
+                if token.basic_type in valid:
+                    if token.basic_type == basic_types.D_QUOTES:
+                        self.state = IN_D_STRING
+                    elif token.basic_type == basic_types.S_QUOTES:
+                        self.state = IN_S_STRING
+                    self._buffer_add()
+                    self.iter += 1
+                    continue
+            elif self.state != BEFORE_STRING:
+                if self.state == IN_S_STRING:
+                    quote_type = basic_types.S_QUOTES
+                elif self.state == IN_D_STRING:
+                    quote_type = basic_types.D_QUOTES
+                else: 
+                    quote_type = basic_types.D_QUOTES
+                if token.basic_type == quote_type:
+                    self._buffer_add()
                     return True
-        elif self.state != BEFORE_STRING:
-            if self.state == IN_S_STRING:
-                quote_type = basic_types.S_QUOTES
-            elif self.state == IN_D_STRING:
-                quote_type = basic_types.D_QUOTES
-            else: 
-                quote_type = basic_types.D_QUOTES
-            if token.basic_type == quote_type:
-                self._buffer_add()
-                return True
-            elif token.basic_type == basic_types.ESC:
+                elif token.basic_type == basic_types.ESC:
+                    self._buffer_add()
+                    self.iter += 1
+                elif token.basic_type == basic_types.EOF:
+                    return False
                 self._buffer_add()
                 self.iter += 1
-            elif token.basic_type == basic_types.EOF:
-                return False
-            self._buffer_add()
-            self.iter += 1
-            if self._in_S_VALUE():
-                return True
-        return False
+                continue
+            return False
 
     def _in_VALUE(self):
-        token = self.tokens[self.iter]
-        if len(self.results.data) > 0:
-            if self.results[-1].token_type == token_types.VALUE:
-                self.results[-1] += token
+        while True:
+            token = self.tokens[self.iter]
+            if token.basic_type == basic_types.EOF:
+                return False
+            if len(self.results.data) > 0:
+                if self.results[-1].token_type == token_types.VALUE:
+                    self.results[-1] += token
+                else:
+                    self._buffer_add()
             else:
-                self._buffer_add()
-        else:
-            raise SyntaxError("How did this happen?")
-        if token.basic_type == basic_types.ESC:
-            self.iter += 1
-            self._in_VALUE()
-        return True
+                raise SyntaxError("How did this happen?")
+            if token.basic_type == basic_types.ESC:
+                self.iter += 1
+                continue
+            return True
 
     def _in_L_OP(self):
-        token = self.tokens[self.iter]
-        valid = [basic_types.WS, basic_types.L_OP]
-        if token.basic_type in valid:
-            if token.basic_type == basic_types.L_OP:
+        while True:
+            token = self.tokens[self.iter]
+            valid = [basic_types.WS, basic_types.L_OP]
+            if token.basic_type in valid:
+                if token.basic_type == basic_types.L_OP:
+                    self._buffer_add()
+                    return True
                 self._buffer_add()
-                return True
-            self._buffer_add()
-            self.iter += 1
-            print(f'{self.buffer=}')
-            if self._in_L_OP():
-                return True
-        return False
+                self.iter += 1
+                continue
+            return False
 
     def _in_R_OP(self):
-        token = self.tokens[self.iter]
-        valid = [basic_types.WS, basic_types.R_OP]
-        if token.basic_type in valid:
-            if token.basic_type == basic_types.R_OP:
+        while True:
+            token = self.tokens[self.iter]
+            valid = [basic_types.WS, basic_types.R_OP]
+            if token.basic_type in valid:
+                if token.basic_type == basic_types.R_OP:
+                    self._buffer_add()
+                    return True
                 self._buffer_add()
-                return True
-            self._buffer_add()
-            self.iter += 1
-            if self._in_S_VALUE():
-                return True
-        return False
+                self.iter += 1
+                continue
+            return False
 
     def _run_func(self):
         self.funcs = {
@@ -301,42 +308,45 @@ class Lexer:
                 token_types.R_OP: self._in_R_OP,
                 token_types.OP: self._in_OP,
                 }
-        if self.guess in self.funcs:
-            if self.funcs[self.guess]():
-                if self.buffer:
-                    self.buffer.set_token_type(self.guess)
-                    self.results.append(self.buffer) 
-                if self.guess == token_types.EOF:
-                    return True
-                self.buffer = None
-                self.state = 0
-                self.iter += 1
-                self._new_guess()
-                if self._run_func():
-                    return True
+        while True:
+            if self.guess in self.funcs:
+                if self.funcs[self.guess]():
+                    if self.buffer:
+                        self.buffer.set_token_type(self.guess)
+                        self.results.append(self.buffer) 
+                    if self.guess == token_types.EOF:
+                        break
+                    self.buffer = None
+                    self.state = 0
+                    self.iter += 1
+                    self._new_guess()
+                    continue
+                else:
+                    self.buffer = None
+                    self.state = 0
+                    self._guess_path()
+                    if self.iter_stack:
+                        self.iter = self.iter_stack[-1]
+                    continue
+                        
             else:
-                self.buffer = None
-                self.state = 0
-                self._guess_path()
-                if self.iter_stack:
-                    self.iter = self.iter_stack[-1]
-                if self._run_func():
-                    return True
-        else:
-            print(f"No function for {self.guess=}")
+                print(f"No function for {self.guess=}")
 
     def lex(self, string: str):
+        self.iter = 0
+        self.results.clear()
         self.tokens = self.split_string(string)
         if self.tokens[self.iter].basic_type == basic_types.SOF:
             self.tokens[self.iter].set_token_type(token_types.SOF)
             self.results.append(self.tokens[self.iter])
             self.iter += 1
+            self._new_guess()
         self._run_func()
-        return self.results
+        return deepcopy(self.results)
 
 if __name__ == "__main__":
-    string = 'playlists: artist: "*iron*" songs:(title: title or | : or stuff and or title  : "Left*")'
-    string = 'playlists: (title: left right)'
+    string = 'playlists: artist: "*iron*" (title: king and title: "Left*")'
+    string1 = "playlists:"
     type_keywords = {
             "artist": "artist",
             "title": "title",
@@ -370,8 +380,12 @@ if __name__ == "__main__":
             }
     tk = Lexer(type_keywords, operator_keywords, seperators)
     import time
+    print(f"{string=}")
     tokens: Tokens = tk.lex(string)
     print(f"{tokens=}")
+    print(f"{string1=}")
+    tokens1: Tokens = tk.lex(string1)
+    print(f"{tokens1=}")
     colorized = ""
     colors = {
             token_types.TYPE: "\x1b[38;2;255;0;0m",
@@ -384,5 +398,10 @@ if __name__ == "__main__":
     for token in tokens:
         if not token.virtual:
             colorized += colors[token.token_type] + token.value + "\x1b[0m"
-    print(f"{string=}")
     print(f"string='{colorized}'")
+
+    colorized = ""
+    for token in tokens1:
+        if not token.virtual:
+            colorized += colors[token.token_type] + token.value + "\x1b[0m"
+    print(f"string1='{colorized}'")

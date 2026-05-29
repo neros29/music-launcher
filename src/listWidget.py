@@ -53,7 +53,7 @@ class ListWidget:
                 if x < self.surface.size()[0]:
                     index = y * self.surface.size()[0] + x
                     color = token.color
-                    self.surface[index].set_fg(color[0][0], color[0][1], color[0][2])
+                    # self.surface[index].set_fg(color[0][0], color[0][1], color[0][2])
                     self.surface[index].set_bg(color[1][0], color[1][1], color[1][2])
                     self.surface[index].set_ch(token.character)
 

@@ -102,7 +102,7 @@ class Songs:
                 results.append(self._concat_and(songs))
             return results
         else:
-            raise NotImplemented
+            return NotImplemented
 
     def concat_or(self, other):
         if isinstance(other, Songs):
@@ -113,7 +113,7 @@ class Songs:
                 results.append(self._concat_or(songs))
             return results
         else:
-            raise NotImplemented
+            return NotImplemented
 
     def _concat_or(self, other: 'Songs'):
         results = []
@@ -212,7 +212,7 @@ class Playlists:
                 results.append(self._concat_and(songs))
             return results
         else:
-            raise NotImplemented
+            return NotImplemented
 
     def concat_or(self, other):
         if isinstance(other, Songs):
@@ -223,7 +223,7 @@ class Playlists:
                 results.append(self._concat_or(songs))
             return results
         else:
-            raise NotImplemented
+            return NotImplemented
 
     def _concat_or(self, other: 'Songs'):
         results = []

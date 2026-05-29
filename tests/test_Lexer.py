@@ -43,6 +43,7 @@ def lexer():
 
 @pytest.mark.parametrize("string, expected", [
     ('artist: ironmouse', [("", token_types.SOF), ("artist:", token_types.TYPE), (" ironmouse", token_types.VALUE),("", token_types.EOF)]),
+    ('artist:', [("", token_types.SOF), ("artist:", token_types.VALUE), ("", token_types.EOF)]),
     ('artist: artist', [("", token_types.SOF), ("artist:", token_types.TYPE), (" artist", token_types.VALUE),("", token_types.EOF)]),
     ('artist: "artist"', [("", token_types.SOF), ("artist:", token_types.TYPE), (" \"artist\"", token_types.S_VALUE),("", token_types.EOF)]),
     ('artist: "artist" and title: and', [("", token_types.SOF), ("artist:", token_types.TYPE), (" \"artist\"", token_types.S_VALUE), (" and", token_types.OP), (" title:", token_types.TYPE), (" and", token_types.VALUE),("", token_types.EOF)]),
@@ -62,4 +63,11 @@ def test_lexing(lexer, string, expected):
     results = [(i.value, i.token_type) for i in lexer.lex(string)]
     assert results == expected
 
+def test_multiple_querys(lexer):
+    string1 = "artist: ironmouse title: king"
+    string2 = "playlists:"
+    r1 = lexer.lex(string1)
+    r2 = lexer.lex(string2)
+    assert len(r1.data) == 6
+    assert len(r2.data) == 3
 
