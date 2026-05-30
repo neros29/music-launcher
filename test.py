@@ -7,38 +7,6 @@ from queryRunner import QueryRunner
 from lexer import Lexer, basic_types
 from parser import Parser
 from playBackController import PlayBackController
-type_keywords = {
-        "artist": "artist",
-        "title": "title",
-        "playlists": "playlists",
-        "playlist": "playlists",
-        "album": "playlists",
-        "albums": "playlists",
-        "date": "date",
-        "genre": "genre",
-        "duration": "duration",
-        "songs": "songs",
-        "song": "songs"
-        }
-
-operator_keywords = {
-        "and": "and",
-        "or": "or",
-        "|": "or",
-        "&": "and"
-        }
-
-seperators= {
-        " ": basic_types.WS,
-        "\n": basic_types.WS,
-        "\t": basic_types.WS,
-        "\\": basic_types.ESC,
-        '"': basic_types.D_QUOTES,
-        "'": basic_types.S_QUOTES,
-        ":": basic_types.SEP,
-        "(": basic_types.L_OP,
-        ")": basic_types.R_OP
-        }
 
 query = Query(Path("~/Documents/projects/music/data/db.json").expanduser())
 qr = QueryRunner(query)
@@ -48,8 +16,8 @@ try:
 except FileNotFoundError:
     print(f"File {file} dose not exist. Please make sure that mpv is running in ipc server mode with the correct socket path.")
     exit()
-parser = Parser(type_keywords, operator_keywords)
-lexer = Lexer(type_keywords, operator_keywords, seperators)
+parser = Parser()
+lexer = Lexer()
 
 while True:
     try:

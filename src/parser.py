@@ -1,5 +1,7 @@
 from typing import Optional
-from lexer import Token, Tokens, token_types, basic_types, Lexer
+from lexer import Token, Tokens, Lexer
+from langdef import basic_types, token_types
+import langdef
 
 class Pair:
     def __init__(self, key: Optional[str] = None, data_type: Optional[str] = None, data = []) -> None:
@@ -21,29 +23,15 @@ class Pair:
 
 
 class Parser:
-    def __init__(self, type_keywords, operator_keywords) -> None:
-        self.type_keywords = type_keywords
-        self.operator_keywords = operator_keywords
-        self.valid_output_paths = {
-                token_types.SOF     : [token_types.TYPE, token_types.EOF],
-                token_types.TYPE    : [token_types.L_OP, token_types.VALUE, token_types.S_VALUE],
-                token_types.VALUE   : [token_types.OP, token_types.R_OP, token_types.EOF],
-                token_types.S_VALUE : [token_types.OP, token_types.R_OP,  token_types.EOF],
-                token_types.OP      : [token_types.TYPE],
-                token_types.L_OP    : [token_types.TYPE],
-                token_types.R_OP    : [token_types.TYPE, token_types.R_OP, token_types.EOF],
-                }
+    def __init__(self) -> None:
+        self.type_keywords = langdef.type_keywords
+        self.operator_keywords = langdef.operator_keywords
+        self.defualts = langdef.defulats
+        self.valid_output_paths = langdef.valid_output_paths
         self.tokens = Tokens()
         self.results = Pair()
         self.scope_stack = []
         self.index = 0
-        self.defulats = {
-                token_types.TYPE: " artist:",
-                token_types.L_OP: "(",
-                token_types.R_OP: ")",
-                token_types.OP: " and ",
-                }
-
     def _get_valid_paths(self):
         token = self.tokens[self.index -1]
         if token.token_type is not None:
@@ -51,7 +39,7 @@ class Parser:
         raise SyntaxError(f"Token '{token}' has no token_type")
 
     def _insert_token(self, token_type: token_types):
-        self.tokens.insert(self.index, Token((self.tokens[self.index - 1].start_idx[0], self.tokens[self.index - 1].start_idx[1] + 1), self.defulats[token_type], token_type=token_type, virtual=True))
+        self.tokens.insert(self.index, Token((self.tokens[self.index - 1].start_idx[0], self.tokens[self.index - 1].start_idx[1] + 1), self.defualts[token_type], token_type=token_type, virtual=True))
         self._manage_scope()
         # self.index += 1
 
@@ -61,8 +49,8 @@ class Parser:
             if len(self.scope_stack) > 0:
                 self.scope_stack.pop()
 
-        if token.token_type == token_types.L_OP:
-            self.scope_stack.append(token.value)
+        if token.token_type == token_types.L_OP and token.start_idx not in self.scope_stack:
+            self.scope_stack.append(token.start_idx)
 
     def _fix_tokens(self):
         valid = None
@@ -83,7 +71,6 @@ class Parser:
             self.index += 1
             valid = self._get_valid_paths()
 
-    #TODO:  artist: selena gomez and aritst: ironmouse -> songs: (artist: selena gomez and aritst: ironmouse)
     def _get_type(self, token: Token):
         return self.type_keywords[token.value.replace(":", "").replace(" ", "")]
 
@@ -108,6 +95,7 @@ class Parser:
                     pair = Pair()
                     continue
             elif token.token_type == token_types.R_OP:
+                self.index += 1
                 break
 
             elif token.token_type == token_types.EOF:
@@ -147,47 +135,17 @@ class Parser:
 
         self._fix_tokens()
         self.index = 0
-        self.results = Pair(self.defulats[token_types.TYPE], "scope", self._get_pair())
+        self.pairs = self._get_pair()
+        self.results = Pair(self.defualts[token_types.TYPE].replace(" ", "").replace(":", ""), "scope", self._get_pair()) if len(self.pairs) > 1 else self.pairs[0]
         return self.results
 
 if __name__ == "__main__":
-    type_keywords = {
-            "artist": "artist",
-            "title": "title",
-            "playlists": "playlists",
-            "playlist": "playlists",
-            "album": "playlists",
-            "albums": "playlists",
-            "date": "date",
-            "genre": "genre",
-            "duration": "duration",
-            "songs": "songs",
-            "song": "songs"
-            }
-
-    operator_keywords = {
-            "and": "and",
-            "or": "or",
-            "|": "or",
-            "&": "and"
-            }
-
-    seperators= {
-            " ": basic_types.WS,
-            "\n": basic_types.WS,
-            "\t": basic_types.WS,
-            "\\": basic_types.ESC,
-            '"': basic_types.D_QUOTES,
-            "'": basic_types.S_QUOTES,
-            ":": basic_types.SEP,
-            "(": basic_types.L_OP,
-            ")": basic_types.R_OP
-            }
     string = 'playlists: artist: "*iron*" (title: king | title: "Left*")'
+    string = "playlists: (artist: ironmouse and songs: (title: 'king*' or title: 'left*') and artist: shiro beats)"
     print(f"{string=}")
 
-    parser = Parser(type_keywords, operator_keywords)
-    tk = Lexer(type_keywords, operator_keywords, seperators)
+    parser = Parser()
+    tk = Lexer()
     tokens: Tokens = tk.lex(string)
     parser.tokens = tokens
     parser._fix_tokens()

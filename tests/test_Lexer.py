@@ -1,45 +1,14 @@
-from unittest.mock import MagicMock, call
 import pytest
-
 from sys import path
+
 path.append("src/")
-from lexer import Lexer, Token, Tokens, basic_types, token_types
+from langdef import token_types
+from lexer import Lexer
 
 
 @pytest.fixture
 def lexer():
-    type_keywords = {
-            "artist": "artist",
-            "title": "title",
-            "playlists": "playlists",
-            "playlist": "playlists",
-            "album": "playlists",
-            "albums": "playlists",
-            "date": "date",
-            "genre": "genre",
-            "duration": "duration",
-            "songs": "songs",
-            "song": "songs"
-            }
-    operator_keywords = {
-            "and": "and",
-            "or": "or",
-            "|": "or",
-            "&": "and"
-            }
-
-    seperators= {
-            " ": basic_types.WS,
-            "\n": basic_types.WS,
-            "\t": basic_types.WS,
-            "\\": basic_types.ESC,
-            '"': basic_types.D_QUOTES,
-            "'": basic_types.S_QUOTES,
-            ":": basic_types.SEP,
-            "(": basic_types.L_OP,
-            ")": basic_types.R_OP
-            }
-    return Lexer(type_keywords, operator_keywords, seperators)
+    return Lexer()
 
 @pytest.mark.parametrize("string, expected", [
     ('artist: ironmouse', [("", token_types.SOF), ("artist:", token_types.TYPE), (" ironmouse", token_types.VALUE),("", token_types.EOF)]),

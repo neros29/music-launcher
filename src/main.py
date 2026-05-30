@@ -9,7 +9,6 @@ from threading import Thread, Lock
 from parser import Parser
 from lexer import Lexer, token_types
 from copy import deepcopy
-import langdef
 import logging
 import time
 from ui import Ui
@@ -19,8 +18,8 @@ class Main:
         logging.getLogger('thefuzz').setLevel(logging.ERROR)
         self.log = open("logs/log", "a")
         self.running = True
-        self.parser = Parser(langdef.type_keywords, langdef.operator_keywords)
-        self.lexer = Lexer(langdef.type_keywords, langdef.operator_keywords, langdef.seperators)
+        self.parser = Parser()
+        self.lexer = Lexer()
         self.db_path = "/home/neros/Documents/projects/music/data/db.json"
         self.query = Query(self.db_path)
         self.qr = QueryRunner(self.query)

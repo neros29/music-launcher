@@ -1,28 +1,8 @@
 from typing import List, Optional
-from enum import Enum, auto
 from copy import deepcopy
+from langdef import basic_types, token_types
+import langdef
 
-class basic_types(Enum):
-    SEP = auto()
-    L_OP = auto()
-    R_OP = auto()
-    WS = auto()
-    S_QUOTES = auto()
-    D_QUOTES = auto()
-    ESC = auto()
-    WORD = auto()
-    EOF = auto()
-    SOF = auto()
-
-class token_types(Enum):
-    EOF = auto()
-    SOF = auto()
-    OP = auto()
-    L_OP = auto()
-    R_OP = auto()
-    TYPE = auto()
-    VALUE = auto()
-    S_VALUE = auto()
     
 class Token:
     def __init__(self, start_idx: tuple, value: str, basic_type: Optional[basic_types] = None, token_type: Optional[token_types] = None, virtual = False) -> None:
@@ -94,20 +74,12 @@ class Tokens:
         return results
 
 class Lexer:
-    def __init__(self, type_keywords, operator_keywords, seperators) -> None:
-        self.type_keywords = type_keywords
-        self.operator_keywords = operator_keywords
-        self.seperators = seperators
-
-        self.valid_syntax_paths = {
-                token_types.SOF     : [token_types.TYPE, token_types.L_OP,  token_types.S_VALUE, token_types.EOF, token_types.VALUE], 
-                token_types.TYPE    : [token_types.TYPE, token_types.L_OP, token_types.S_VALUE, token_types.VALUE],
-                token_types.VALUE   : [token_types.OP, token_types.TYPE, token_types.L_OP, token_types.R_OP, token_types.EOF, token_types.VALUE],
-                token_types.S_VALUE : [token_types.OP, token_types.TYPE, token_types.L_OP, token_types.R_OP, token_types.EOF],
-                token_types.OP      : [token_types.TYPE, token_types.L_OP],
-                token_types.L_OP    : [token_types.TYPE, token_types.VALUE, token_types.S_VALUE],
-                token_types.R_OP    : [token_types.TYPE, token_types.EOF],
-                }
+    def __init__(self) -> None:
+        self.seperators = langdef.seperators
+        self.type_keywords = langdef.type_keywords
+        self.operator_keywords = langdef.operator_keywords
+        self.defualts = langdef.defulats
+        self.valid_syntax_paths = langdef.valid_syntax_paths
 
         self.results: Tokens = Tokens()
         self.tokens: Tokens = Tokens()
@@ -346,46 +318,12 @@ class Lexer:
 
 if __name__ == "__main__":
     string = 'playlists: artist: "*iron*" (title: king and title: "Left*")'
-    string1 = "playlists:"
-    type_keywords = {
-            "artist": "artist",
-            "title": "title",
-            "playlists": "playlists",
-            "playlist": "playlists",
-            "album": "playlists",
-            "albums": "playlists",
-            "date": "date",
-            "genre": "genre",
-            "duration": "duration",
-            "songs": "songs",
-            "song": "songs"
-            }
-    operator_keywords = {
-            "and": "and",
-            "or": "or",
-            "|": "or",
-            "&": "and"
-            }
-
-    seperators= {
-            " ": basic_types.WS,
-            "\n": basic_types.WS,
-            "\t": basic_types.WS,
-            "\\": basic_types.ESC,
-            '"': basic_types.D_QUOTES,
-            "'": basic_types.S_QUOTES,
-            ":": basic_types.SEP,
-            "(": basic_types.L_OP,
-            ")": basic_types.R_OP
-            }
-    tk = Lexer(type_keywords, operator_keywords, seperators)
+    string = "playlists: (artist: ironmouse and songs: (title: 'king*' or title: 'left*') and artist: shiro beats)"
+    tk = Lexer()
     import time
     print(f"{string=}")
     tokens: Tokens = tk.lex(string)
     print(f"{tokens=}")
-    print(f"{string1=}")
-    tokens1: Tokens = tk.lex(string1)
-    print(f"{tokens1=}")
     colorized = ""
     colors = {
             token_types.TYPE: "\x1b[38;2;255;0;0m",
@@ -400,8 +338,3 @@ if __name__ == "__main__":
             colorized += colors[token.token_type] + token.value + "\x1b[0m"
     print(f"string='{colorized}'")
 
-    colorized = ""
-    for token in tokens1:
-        if not token.virtual:
-            colorized += colors[token.token_type] + token.value + "\x1b[0m"
-    print(f"string1='{colorized}'")
