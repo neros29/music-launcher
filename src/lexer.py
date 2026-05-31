@@ -318,11 +318,13 @@ class Lexer:
 
 if __name__ == "__main__":
     string = 'playlists: artist: "*iron*" (title: king and title: "Left*")'
-    string = "playlists: (artist: ironmouse and songs: (title: 'king*' or title: 'left*') and artist: shiro beats)"
+    string = "playlists: (artist: ironmouse (title: 'king*"
     tk = Lexer()
     import time
     print(f"{string=}")
+    start = time.time()
     tokens: Tokens = tk.lex(string)
+    print(f"{time.time() - start=}")
     print(f"{tokens=}")
     colorized = ""
     colors = {

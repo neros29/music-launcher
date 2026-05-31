@@ -1,9 +1,8 @@
 import os
 from typing import List
-from listWidget import Element, Token
+from inputWidget import Token
 from queryRunner import QueryRunner
 from query import Query, Playlist, Song
-from queue import Queue
 from playBackController import PlayBackController
 from threading import Thread, Lock
 from parser import Parser
@@ -15,6 +14,7 @@ from ui import Ui
 
 class Main:
     def __init__(self) -> None:
+        print("\x1b[?1h")
         logging.getLogger('thefuzz').setLevel(logging.ERROR)
         self.log = open("logs/log", "a")
         self.running = True
@@ -31,16 +31,17 @@ class Main:
             exit()
             
 
-        self.ui = Ui()
+        self.ui = Ui(self.log)
         self.text: str = ""
         self.options_lock = Lock()
         self.options = []
-        self.ast_qeue =  Queue()
-        self.worker_thread = Thread(target=self.worker, daemon=True)
-        self.worker_thread.start()
+        # self.ast_qeue =  Queue()
+        # self.worker_thread = Thread(target=self.worker, daemon=True)
+        # self.worker_thread.start()
         self.songs = []
         self.curser_index = 0
         self.selected = 0
+        self.max_time = 0
 
         self.special_keys = {
                 "Backspace": self._backspace,
@@ -74,10 +75,12 @@ class Main:
         self.curser_index = min(len(self.text), self.curser_index + 1)
 
     def _backspace(self):
-        first = self.text[:self.curser_index -1]
-        second = self.text[self.curser_index:]
-        self.text = first + second
+        secound = self.text[self.curser_index:]
+        first = self.text[:max(0, self.curser_index - 1)]
+        self.text = first + secound
         self.curser_index = max(0, self.curser_index - 1)
+
+        self.get_options()
 
     def get_options(self):
         tokens = self.lexer.lex(self.text)
@@ -85,22 +88,21 @@ class Main:
         if ast is None:
             self.options = None
             return
-        self.ast_qeue.put(ast)
+        self.options = self.qr.run(ast)
 
-    def worker(self):
-        while True:
-            ast = self.ast_qeue.get()
-            values = self.qr.run(ast)
-            self.options_lock.acquire()
-            self.options = deepcopy(values)
-            self.options_lock.release()
+
+    # def worker(self):
+    #     while True:
+    #         ast = self.ast_qeue.get()
+    #         values = self.qr.run(ast)
+    #         self.options_lock.acquire()
+    #         self.options = deepcopy(values)
+    #         self.options_lock.release()
 
     def draw_list(self):
         width = self.ui.song_list_size[0]
         text = []
-        self.options_lock.acquire()
-        results = deepcopy(self.options)
-        self.options_lock.release()
+        results = self.options
         if results is None:
             text.append(f"Invalid query")
         else:
@@ -113,7 +115,7 @@ class Main:
                 if type(result) == Playlist:
                     name = f"playlist: {result.playlist_name}"
                     artist = f"artist: {result.artist}"
-                    tracks = f"tack count: {len(result.data):03d}"
+                    tracks = f"track count: {len(result.data):03d}"
                     first_space = ((width - len(artist)) // 2) - len(name)
                     secound_space = (width - (first_space + len(name) + len(artist) + len(tracks)))
                     playlist_text = name + " "* first_space + artist + " " * secound_space + tracks
@@ -131,19 +133,7 @@ class Main:
                     songs.append([result.name])
                     index += 1
             self.songs = songs
-        results = []
-        selected = min(len(text) - 1, self.selected)
-        for y, line in enumerate(text):
-            if y > 10:
-                continue
-            element = []
-            for ch in line:
-                if y == selected:
-                    element.append(Token(self.ui.fg, [0x3d, 0x42, 0x53], ch))
-                else:
-                    element.append(Token(self.ui.fg, self.ui.bg, ch))
-            results.append(Element(element))
-        return results
+        return text
 
     def play(self, songs):
         self.pbc.replace_playlist(songs)
@@ -152,8 +142,15 @@ class Main:
         first = self.text[:self.curser_index]
         secound = key
         third = self.text[self.curser_index:]
-        self.text = first + secound + third
+        self.text = first + secound + third 
         self.curser_index += 1
+        if key == "(" and self.curser_index == len(self.text):
+            self.text += ")"
+        if key == '"' and self.curser_index == len(self.text):
+            self.text += '"'
+        if key == "'" and self.curser_index == len(self.text):
+            self.text += "'"
+
 
     def events(self, keys: List[str]):
         for key in keys:
@@ -185,17 +182,26 @@ class Main:
 
     def run(self):
         frame_max = 0
+        max_text = ""
+        to_print = ""
         os.system("clear")
         while self.running:
             try:
-                start = time.time()
-                keys = self.ui.update(self.draw_text(), self.draw_list())
-                frame_max = max(frame_max, time.time() - start)
+                text = self.draw_text()
+                elements = self.draw_list()
+                keys = self.ui.update(text, elements, self.selected)
                 self.events(keys)
+
             except KeyboardInterrupt:
                 break
+            except Exception as e:
+                to_print += f"Error {e} occured\n"
+                to_print += f"Text dump is '{self.text}'\n"
+                break
         os.system("clear")
+        print(to_print, end="")
         print(frame_max)
+        print(max_text)
 
 if __name__ == "__main__":
     main = Main()

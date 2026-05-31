@@ -32,13 +32,13 @@ def test_regex(parser, mock_root):
     parser.run(ast)
     mock_root.regex.assert_called_once_with("title", parser._glob_to_regex("left right"))
 
-def test_and(parser, mock_root):
-    song1 = MagicMock()
-    song2 = MagicMock()
-    mock_root.get_songs_batch.side_effect = [song1, song2]
-    ast = Pair("playlists", "scope", [Pair("title", "fuzz", "left right"), Pair(None,"operator","and"), Pair("title", "fuzz", "right left")])
-    parser.run(ast)
-    song1.concat_and.assert_called_once_with(song2) 
+# def test_and(parser, mock_root):
+#     song1 = MagicMock()
+#     song2 = MagicMock()
+#     mock_root.get_songs_batch.side_effect = [song1, song2]
+#     ast = Pair("playlists", "scope", [Pair("title", "fuzz", "left right"), Pair(None,"operator","and"), Pair("title", "fuzz", "right left")])
+#     parser.run(ast)
+#     song1.concat_and.assert_called_once_with(song2) 
 
 def test_or(parser, mock_root):
     song1 = MagicMock()

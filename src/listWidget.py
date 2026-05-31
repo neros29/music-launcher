@@ -3,62 +3,45 @@ from pytui import Label, Surface, Tui
 import time
 import os
 
-class Token:
-    def __init__(self, fg, bg, ch, token_type="text", flash = None) -> None:
-        self.color = [fg, bg]
-        self.character = ch if len(ch) == 1 else ch[0]
-        self.type = token_type
-        self.flash = flash
-
-    def __eq__(self, value: object, /) -> bool:
-        if isinstance(value, Token):
-            colors = self.color == value.color
-            characters = self.character == value.character
-            types = self.type == value.type
-            flashs = self.flash == value.flash
-            return colors and characters and types and flashs
-        return NotImplemented
-
-class Element:
-    def __init__(self, tokens: List[Token]) -> None:
-        self.tokens = tokens
-
-    def __eq__(self, value: object, /) -> bool:
-        if isinstance(value, Element):
-            return self.tokens == value.tokens
-        return NotImplemented
-    def __iter__(self):
-        for i in self.tokens:
-            yield i
             
 
 class ListWidget:
-    def __init__(self, surface: Surface, fg: List[int], bg: List[int]) -> None:
+    def __init__(self, surface: Surface, surface1: Surface, fg: List[int], bg: List[int]) -> None:
         self.surface: Surface = surface
+        self.surface1: Surface = surface1
+        self.surface.offset()
+        self.surface1.fill_bg(0x42, 0x3e, 0x58)
         self.fg = fg
         self.bg = bg
-        self.current_elements: List[Element] = []
+        self.current_elements: List[str] = []
+        self.lab = Label(self.surface, "", [0, 0])
+        self.bottom = 0
+        self.margin = 5
 
     def clear(self):
-        self.surface.fill_ch(" ")
-        self.surface.fill_bg(self.bg[0], self.bg[1], self.bg[2])
-        self.surface.fill_fg(self.fg[0], self.fg[1], self.fg[2])
+        text = "\n".join([" " * self.surface.size()[0] for _ in range(self.surface.size()[1])])
+        self.lab.set_text(text)
 
-    def _render(self, elements: List[Element]):
+    def _render(self, elements: List[str], selected):
         self.clear()
-        for y, element in enumerate(elements):
-            if y > self.surface.size()[1]:
-                break
-            for x, token in enumerate(element):
-                if x < self.surface.size()[0]:
-                    index = y * self.surface.size()[0] + x
-                    color = token.color
-                    # self.surface[index].set_fg(color[0][0], color[0][1], color[0][2])
-                    self.surface[index].set_bg(color[1][0], color[1][1], color[1][2])
-                    self.surface[index].set_ch(token.character)
+        if len(elements) > self.surface.size()[1]:
+            if self.bottom != 0 and selected <= self.bottom + self.margin:
+                self.bottom = selected - self.margin
+            elif selected >= (self.bottom + self.surface.size()[1]) - self.margin:
+                self.bottom = selected - (self.surface.size()[1] - self.margin)
+        else: 
+            self.bottom = 0
 
-    def update(self, elements: List[Element]):
-        if elements != self.current_elements:
-            self._render(elements)
-            self.current_elements = elements
+        string = "\n".join(elements[self.bottom: self.bottom + self.surface.size()[1]])
+        self.lab.set_text(string)
+        self.lab.update()
+
+    def _move_selected(self, selected):
+        self.surface1.set_offset(self.surface.offset()[0], self.surface.offset()[1] + selected)
+
+    def update(self, elements: List[str], selected=0):
+        # if elements != self.current_elements:
+        self._render(elements, selected)
+        self.current_elements = elements
+        self._move_selected(selected - self.bottom)
 

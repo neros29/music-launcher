@@ -1,13 +1,37 @@
-import os
 import string
-from typing import Dict, List, Optional
-from copy import deepcopy
+from typing import  List, Optional
 import time
-from pytui import Label, Tui, Surface
-from listWidget import ListWidget, Token, Element
-from queryRunner import QueryRunner
-from query import Query, Playlist, Songs, Song
+from pytui import  Surface
 
+class Token:
+    def __init__(self, fg, bg, ch, token_type="text", flash = None) -> None:
+        self.color = [fg, bg]
+        self.character = ch if len(ch) == 1 else ch[0]
+        self.type = token_type
+        self.flash = flash
+
+    def __eq__(self, value: object, /) -> bool:
+        if isinstance(value, Token):
+            colors = self.color == value.color
+            characters = self.character == value.character
+            types = self.type == value.type
+            flashs = self.flash == value.flash
+            return colors and characters and types and flashs
+        return NotImplemented
+    def __repr__(self):
+        return self.character
+
+class Element:
+    def __init__(self, tokens: List[Token]) -> None:
+        self.tokens = tokens
+
+    def __eq__(self, value: object, /) -> bool:
+        if isinstance(value, Element):
+            return self.tokens == value.tokens
+        return NotImplemented
+    def __iter__(self):
+        for i in self.tokens:
+            yield i
 
 class InputWidget:
     def __init__(self, surface: Surface, bg: List, fg: List):

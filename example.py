@@ -36,7 +36,7 @@ def print_results(matches, key):
     for match, score in matches:
         songs = get_songs(key, match)
         print(f"score: {score}{' ' * (50 - len(str(score))) }match: {match}{' ' * (50 - len(match)) }len of songs:{len(songs)}")
-        
+
 if __name__ == "__main__":
     key = input("A key to search through: ")
     value = input("The value to find: ")

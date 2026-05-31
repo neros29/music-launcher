@@ -17,15 +17,18 @@ class QueryRunner:
         regex_pattern = regex_pattern.replace(r'\?', '.')
         regex_pattern = f"^{regex_pattern}$"
         return regex_pattern
-        
-    def run(self, ast: Pair):
+
+    def run(self, ast: Pair): 
+        return self._interpert(ast, self.root)
+
+    def _interpert(self, ast: Pair, search_space):
         if ast.data_type == "fuzz":
-            results = self.root.get_songs_batch(ast.key, self.root.fuzz(ast.key, ast.data))
+            results = search_space.get_songs_batch(ast.key, search_space.fuzz(ast.key, ast.data))
             if results == NotImplemented:
                 return query.Songs()
             return results
         elif ast.data_type == "re":
-            results = self.root.get_songs_batch(ast.key, self.root.regex(ast.key, self._glob_to_regex(ast.data)))
+            results = search_space.get_songs_batch(ast.key, search_space.regex(ast.key, self._glob_to_regex(ast.data)))
             if results == NotImplemented:
                 return query.Songs()
             return results
@@ -39,13 +42,13 @@ class QueryRunner:
                 elif isinstance(pair, Pair):
                     if results is None:
                         assert op is None, "Something bad happened"
-                        results = self.run(pair)
+                        results = self._interpert(pair, search_space)
                     elif op == "and":
-                        results = results.concat_and(self.run(pair))
+                        results = self._interpert(pair, results)
                         if results == NotImplemented:
                             results = query.Songs()
                     elif op == "or":
-                        results = results.concat_or(self.run(pair))
+                        results = results.concat_or(self._interpert(pair, search_space))
                         if results == NotImplemented:
                             results = query.Songs()
                     else:
@@ -63,50 +66,23 @@ class QueryRunner:
         
 
 if __name__ == "__main__":
-    type_keywords = {
-            "artist": "artist",
-            "title": "title",
-            "playlists": "playlists",
-            "playlist": "playlists",
-            "album": "playlists",
-            "albums": "playlists",
-            "date": "date",
-            "genre": "genre",
-            "duration": "duration",
-            "songs": "songs",
-            "song": "songs"
-            }
-    operator_keywords = {
-            "and": "and",
-            "or": "or",
-            "|": "or",
-            "&": "and"
-            }
-
-    seperators= {
-            " ": basic_types.WS,
-            "\n": basic_types.WS,
-            "\t": basic_types.WS,
-            "\\": basic_types.ESC,
-            '"': basic_types.D_QUOTES,
-            "'": basic_types.S_QUOTES,
-            ":": basic_types.SEP,
-            "(": basic_types.L_OP,
-            ")": basic_types.R_OP
-            }
     q = Query("data/db.json")
     qr = QueryRunner(q)
-    lexer = Lexer(type_keywords, operator_keywords, seperators)
-    parser = Parser(type_keywords, operator_keywords)
-    string = 'songs: artist: ironmouse (title: "left right*" or title: "devil")'
+    lexer = Lexer()
+    parser = Parser()
+
+    string = 'all: artist: ironmouse (title: "king*" or title: "left*")'
+
+    import time
     tokens = lexer.lex(string)
     ast = parser.parse(tokens)
-    tokens = Pair("songs", "scope", [Pair("artist", "fuzz", "ironmouse"), Pair(None, "operator", "and"), Pair("songs", "scope", [Pair("title", "re", "left right*"), Pair(None, "operator", "or"), Pair("title", "re", "devil")])])
-    print(f"{ast=}")
+    start = time.time()
     values = qr.run(ast)
+    print(f"{time.time() - start=}")
+    print(f"{ast=}")
     assert values != None;
     for i in values:
         if isinstance(i, Playlist):
             print(i.playlist_name)
         elif isinstance(i, Song):
-            print(i.name)
+            print(f"{i.name} artist: {i.get_values('artist')}")

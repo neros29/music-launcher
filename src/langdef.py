@@ -33,7 +33,8 @@ type_keywords = {
         "genre": "genre",
         "duration": "duration",
         "songs": "songs",
-        "song": "songs"
+        "song": "songs",
+        "all": "all",
         }
 
 operator_keywords = {

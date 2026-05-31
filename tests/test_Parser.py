@@ -51,7 +51,8 @@ def test_get_pair(parser, tokens, expected):
     (gen_tokens("playlists: artist: ironmouse"), [("playlists", "scope", [("artist", "fuzz", "ironmouse")])]),
     (gen_tokens("playlists: (artist: ironmouse and songs: (title: 'king*' or title: 'left*') and artist: shiro beats)"), [("playlists", "scope", [("artist", "fuzz", "ironmouse"), (None, "operator", "and"), ("songs", "scope", [("title", "re", "king*"), (None, "operator", "or"), ("title", "re", "left*")]), (None, "operator", "and"), ("artist", "fuzz", "shiro beats")])]),
     (gen_tokens("()"), [("artist", "scope", [("artist", "fuzz", ")")])]),
-    (gen_tokens("ironmouse"), [("artist", "fuzz", "ironmouse")])
+    (gen_tokens("ironmouse"), [("artist", "fuzz", "ironmouse")]),
+    (gen_tokens(""), [("artist", "scope", [])])
     ])
 def test_parser(parser, tokens, expected):
     results = get_results([parser.parse(tokens)])

@@ -12,10 +12,7 @@ class Pair:
     def __repr__(self) -> str:
         if isinstance(self.data, list):
             string = f"('{self.key}': ["
-            for i in self.data:
-                string += f"{i.__repr__()}"
-                if i != self.data[-1]:
-                    string += ", "
+            string += ", ".join(repr(i) for i in self.data)
 
             return string + "])"
         else:
@@ -136,14 +133,13 @@ class Parser:
         self._fix_tokens()
         self.index = 0
         self.pairs = self._get_pair()
-        self.results = Pair(self.defualts[token_types.TYPE].replace(" ", "").replace(":", ""), "scope", self._get_pair()) if len(self.pairs) > 1 else self.pairs[0]
+        self.results = Pair(self.defualts[token_types.TYPE].replace(" ", "").replace(":", ""), "scope", self._get_pair()) if len(self.pairs) > 1 or len(self.pairs) <= 0 else self.pairs[0]
         return self.results
 
 if __name__ == "__main__":
     string = 'playlists: artist: "*iron*" (title: king | title: "Left*")'
-    string = "playlists: (artist: ironmouse and songs: (title: 'king*' or title: 'left*') and artist: shiro beats)"
+    string = "playlists: (artist: ironmouse and songs: (title: 'king*' or title: 'l"
     print(f"{string=}")
-
     parser = Parser()
     tk = Lexer()
     tokens: Tokens = tk.lex(string)
@@ -155,5 +151,8 @@ if __name__ == "__main__":
         print(i, end="")
     print("'")
     parser.index = 0
+    import time
+    start = time.time()
     results = parser.parse(tokens)
+    print(f"{time.time()}")
     print(f"{results=}")

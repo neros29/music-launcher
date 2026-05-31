@@ -31,14 +31,20 @@ class Song:
         if not isinstance(other, Song):
             return NotImplemented 
         return self.name == other.name
-
 class Songs:
     def __init__(self, data = None) -> None:
         self.data: List[Song] = data if data is not None else []
         self._min_score = 75
         self._limit = None
 
+        self.FUZZ_CACHE = {}
+        self.REGEX_CACHE = {}
+        self.SONGS_CACHE = {}
+        self.VALUES_CACHE = {}
+
     def regex(self, key: str, pattern: str):
+        if self.REGEX_CACHE.get(f"{key}, {pattern}"):
+            return self.REGEX_CACHE.get(f"{key}, {pattern}")
         values = self.get_values(key)
         results = []
         for value in values:
@@ -47,22 +53,29 @@ class Songs:
                     results.append(value)
             except Exception as e:
                 print(f"Error \"{e}\" with {value=}, and {pattern=}")
+        self.REGEX_CACHE[f"{key}, {pattern}"] = results
         return results
 
     def fuzz(self, key: str, pattern: str):
+        if self.FUZZ_CACHE.get(f"{key}, {pattern}"):
+            return self.FUZZ_CACHE.get(f"{key}, {pattern}")
         values = self.get_values(key)
         matches = process.extract(pattern, values, scorer=fuzz.WRatio, limit=self._limit)
         results = []
         for match, score in matches:
             if score > self._min_score:
                 results.append(match)
+        self.FUZZ_CACHE[f"{key}, {pattern}"] = results
         return results
     
     def get_songs(self, key: str, value: str):
+        if self.SONGS_CACHE.get(f"{key}, {value}"):
+            return self.SONGS_CACHE.get(f"{key}, {value}")
         results = []
         for song in self.data:
             if song.has_property(key, value):
                 results.append(song)
+        self.SONGS_CACHE[f"{key}, {value}"] = Songs(results)
         return Songs(results)
 
     def get_songs_batch(self, key: str, values: List):
@@ -74,7 +87,9 @@ class Songs:
     def get_playable(self):
         return [i.name for i in self.data]
 
-    def get_values(self, key: str, all_values=False) -> List:
+    def get_values(self, key: str, all_values=False):
+        if self.VALUES_CACHE.get(f"{key}, {all_values}"):
+            return self.VALUES_CACHE.get(f"{key}, {all_values}")
         values = []
         for song in self.data:
             if all_values:
@@ -84,6 +99,7 @@ class Songs:
             for v in value:
                 if v not in values:
                     values.append(v)
+        self.VALUES_CACHE[f"{key}, {all_values}"] = values
         return values
     
     def _concat_and(self, other: 'Songs'):
@@ -186,7 +202,10 @@ class Playlist(Songs):
             if count[artist] > most:
                 most_artist = artist
                 most = count[artist]
-        self.score = most / len(self.data)
+        try:
+            self.score = most / len(self.data)
+        except ZeroDivisionError:
+            self.score = 0
         return most_artist
 
 class Playlists:
