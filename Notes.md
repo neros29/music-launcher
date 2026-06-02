@@ -128,3 +128,19 @@ This would then in the query function look like going through each song and call
 ### TODO
 I should make the parser return defualt for defualt inteasd of having it guess for defults as the querying engine will be much better at guessing. Also it should set scope keys to None if there is not key defined for the scope. Basicly serpate concerns the data base query worryas about defualt cases, and the parser just parsers. This will allow for much more intelgenct choices when it comes to defualts. 
 
+[
+    {'func': 'self', 'key': 'songs', 'value': 
+    [
+        {'func': 'self', 'key': 'songs', 'value': 
+        [
+            {'func': 'fuzz', 'key': 'artist', 'value': 'ironmouse', 'op': None}, 
+            {'func': 'fuzz', 'key': 'artist', 'value': 'shirobeats', 'op': 'or'}
+        ], 'op': None}, 
+        {'func': 'self', 'key': 'artist', 'value': 
+        [
+            {'func': 're', 'key': 'title', 'value': 'king*', 'op': None}, 
+            {'func': 're', 'key': 'title', 'value': 'show off*', 'op': 'or'}
+        ],'op': 'and'}
+    ]
+    , 'op': None}
+]

@@ -1,13 +1,10 @@
 import os
 from typing import List
 from inputWidget import Token
-from queryRunner import QueryRunner
-from query import Query, Playlist, Song
+from dbQuery import Query, Playlist, Song
 from playBackController import PlayBackController
-from threading import Thread, Lock
 from parser import Parser
 from lexer import Lexer, token_types
-from copy import deepcopy
 import logging
 import time
 from ui import Ui
@@ -22,7 +19,6 @@ class Main:
         self.lexer = Lexer()
         self.db_path = "/home/neros/Documents/projects/music/data/db.json"
         self.query = Query(self.db_path)
-        self.qr = QueryRunner(self.query)
         self.socket_file = "/tmp/mpv"
         try:
             self.pbc = PlayBackController(self.socket_file)
@@ -33,11 +29,7 @@ class Main:
 
         self.ui = Ui(self.log)
         self.text: str = ""
-        self.options_lock = Lock()
         self.options = []
-        # self.ast_qeue =  Queue()
-        # self.worker_thread = Thread(target=self.worker, daemon=True)
-        # self.worker_thread.start()
         self.songs = []
         self.curser_index = 0
         self.selected = 0
@@ -88,16 +80,12 @@ class Main:
         if ast is None:
             self.options = None
             return
-        self.options = self.qr.run(ast)
-
-
-    # def worker(self):
-    #     while True:
-    #         ast = self.ast_qeue.get()
-    #         values = self.qr.run(ast)
-    #         self.options_lock.acquire()
-    #         self.options = deepcopy(values)
-    #         self.options_lock.release()
+        start = time.time()
+        self.options = self.query.query(ast)
+        end = time.time() - start
+        if end > self.max_time:
+            self.max_time = end
+            print(f"'{self.text}' took: {self.max_time}", file=self.log)
 
     def draw_list(self):
         width = self.ui.song_list_size[0]
@@ -113,24 +101,24 @@ class Main:
             songs = []
             for result in results:
                 if type(result) == Playlist:
-                    name = f"playlist: {result.playlist_name}"
+                    name = f"playlist: {result.name}"
                     artist = f"artist: {result.artist}"
-                    tracks = f"track count: {len(result.data):03d}"
+                    tracks = f"track count: {len(result.songs):03d}"
                     first_space = ((width - len(artist)) // 2) - len(name)
                     secound_space = (width - (first_space + len(name) + len(artist) + len(tracks)))
                     playlist_text = name + " "* first_space + artist + " " * secound_space + tracks
                     text.append(playlist_text)
-                    songs.append(result.get_playable())
+                    songs.append([i.path for i in result])
                     index += 1
                 elif type(result) == Song:
-                    name = f"song: {result.get_values('title')[0]}"
-                    artist = f"artist: {result.get_values('artist')[0]}"
-                    duration = f"duration: {result.get_values('duration')[0]}"
+                    name = f"song: {result.get('title')}"
+                    artist = f"artist: {result.get('artist')}"
+                    duration = f"duration: {result.get('duration')}"
                     first_space = ((width - len(artist)) // 2) - len(name)
                     secound_space = (width - (first_space + len(name) + len(artist) + len(duration)))
                     playlist_text = name + " "* first_space + artist + " " * secound_space + duration
                     text.append(playlist_text)
-                    songs.append([result.name])
+                    songs.append([result.path])
                     index += 1
             self.songs = songs
         return text
@@ -184,6 +172,9 @@ class Main:
         frame_max = 0
         max_text = ""
         to_print = ""
+        frame_rate = 60
+        frame_time = 1/60
+        last_frame = time.perf_counter()
         os.system("clear")
         while self.running:
             try:
@@ -191,13 +182,17 @@ class Main:
                 elements = self.draw_list()
                 keys = self.ui.update(text, elements, self.selected)
                 self.events(keys)
-
+                now = time.perf_counter()
+                elapsed = now - last_frame
+                if elapsed < frame_time:
+                    time.sleep(frame_time - elapsed)
+                last_frame = time.perf_counter()
             except KeyboardInterrupt:
                 break
-            except Exception as e:
-                to_print += f"Error {e} occured\n"
-                to_print += f"Text dump is '{self.text}'\n"
-                break
+            # except Exception as e:
+            #     to_print += f"Error {e} occured\n"
+            #     to_print += f"Text dump is '{self.text}'\n"
+            #     break
         os.system("clear")
         print(to_print, end="")
         print(frame_max)

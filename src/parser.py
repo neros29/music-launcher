@@ -139,7 +139,7 @@ class Parser:
 
 if __name__ == "__main__":
     string = 'playlists: artist: "*iron*" (title: king | title: "Left*")'
-    string = "playlists: (artist: ironmouse and songs: (title: 'king*' or title: 'l"
+    string = "songs: songs: (artist: ironmouse or artist: shirobeats) and (title: 'king*' or title: 'show off*')"
     print(f"{string=}")
     parser = Parser()
     tk = Lexer()
