@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import List
+from typing import List, Optional
 from thefuzz import fuzz
 from parser import Pair, Parser
 from lexer import Lexer
@@ -18,7 +18,7 @@ class Song:
         return self.root.data[self.path][key]
 
 class Playlist:
-    def __init__(self, songs: List[Song], playlist_name: str, root_song: Song) -> None:
+    def __init__(self, songs: List[Song], playlist_name: str, root_song: Optional[Song]) -> None:
         self.name = playlist_name
         self.root_song = root_song
         self.songs = songs
@@ -26,20 +26,26 @@ class Playlist:
 
     def _get_artist(self):
         results = {}
+        first_seen_order = {}
+        order_counter = 0
+
         for song in self.songs:
-            artists = [i.strip() for i in song.get("artist").split(",")]
-            for artist in artists:
-                if artist not in results:
-                    results[artist] = 1
-                else:
-                    results[artist] += 1
-        most_aperences = 0
-        most_aperences_name = ""
-        for artist in results:
-            if results[artist] > most_aperences:
-                most_aperences_name = artist
-                most_aperences = results[artist]
-        return most_aperences_name
+            artists = set()
+            for a in song.get("artist").split(","):
+                a = a.strip().lower()
+                if a not in artists:
+                    artists.add(a)
+                    if a not in first_seen_order:
+                        first_seen_order[a] = order_counter
+                        order_counter += 1
+                    results[a] = results.get(a, 0) + 1
+
+        most_appearances = max(results.values(), default=0)
+        top_artists = [a for a, c in results.items() if c == most_appearances]
+        
+        # Tiebreak by who appeared first in the metadata
+        top_artists.sort(key=lambda a: first_seen_order[a])
+        return top_artists[0]
 
     def __iter__(self):
         for i in self.songs:
@@ -194,10 +200,13 @@ class Query:
         asm = self._compile_ast(ast)
         results = self._query_db(asm)
         results.sort(key=lambda x: x.score, reverse=True)
-        if asm[0]["key"] == "playlists":
-            playlists = self.get_playlsits(results)
+        if asm[0]["key"] == "songs":
+            return results
+        if asm[0]["key"] == "all":
+            playlists = Playlist(results, "", None)
             return playlists
-        return results
+        return self.get_playlsits(results)
+
         
 
 if __name__ == "__main__":
@@ -208,6 +217,7 @@ if __name__ == "__main__":
     string = "songs: artist: ironmouse (title: 'king*' or title: 'l"
     string = "playlists: a"
     string = "songs: songs:(artist: ironmouse or artist: shirobeats) and (title: 'king*' or title: 'show off*')"
+    string = "playlists: playlists: 'deeply friendship' or playlists: 'we are so back'"
     tokens = lexer.lex(string)
     ast = parser.parse(tokens)
     import time
@@ -219,4 +229,4 @@ if __name__ == "__main__":
     # for song in results:
     #     print(f"songs: {song.get('title')}: {song.score_list}")
     # for playlist in results:
-    #     print(f"{playlist.name}")
+    #     print(f"{playlist.name}         {playlist.artist}")

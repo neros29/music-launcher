@@ -95,16 +95,23 @@ class Main:
             text.append(f"Invalid query")
         else:
             if type(results) == Playlist:
-                self.songs = [results.get_playable()]
+                self.songs = [i.path for i in results]
                 text.append(f"playing custom playlist from query")
             index = 0
             songs = []
+            max_name_len = (width // 2) - 5
+            max_artist_len = (width // 3) - 5
             for result in results:
                 if type(result) == Playlist:
                     name = f"playlist: {result.name}"
+                    if len(name) > max_name_len:
+                        name = name[: max_name_len ] + "..."
                     artist = f"artist: {result.artist}"
+                    if len(artist) > max_artist_len:
+                        artist = artist[:max_artist_len] + "..."
+
                     tracks = f"track count: {len(result.songs):03d}"
-                    first_space = ((width - len(artist)) // 2) - len(name)
+                    first_space = (width // 2) - len(name)
                     secound_space = (width - (first_space + len(name) + len(artist) + len(tracks)))
                     playlist_text = name + " "* first_space + artist + " " * secound_space + tracks
                     text.append(playlist_text)
@@ -112,9 +119,13 @@ class Main:
                     index += 1
                 elif type(result) == Song:
                     name = f"song: {result.get('title')}"
+                    if len(name) > max_name_len:
+                        name = name[: max_name_len] + "..."
                     artist = f"artist: {result.get('artist')}"
+                    if len(artist) > max_artist_len:
+                        artist = artist[:max_artist_len] + "..."
                     duration = f"duration: {result.get('duration')}"
-                    first_space = ((width - len(artist)) // 2) - len(name)
+                    first_space = (width // 2) - len(name)
                     secound_space = (width - (first_space + len(name) + len(artist) + len(duration)))
                     playlist_text = name + " "* first_space + artist + " " * secound_space + duration
                     text.append(playlist_text)
