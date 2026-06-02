@@ -44,7 +44,9 @@ class InputWidget:
             "Left": "Left",
             "Right": "Right",
             "Up": "Up",
-            "Down": "Down"
+            "Down": "Down",
+            chr(0x09): "tab",
+            chr(0x13): "ctrl_s",
         }
         self.curser_shown = True
         self.last_time = time.time()

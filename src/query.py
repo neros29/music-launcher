@@ -31,6 +31,7 @@ class Song:
         if not isinstance(other, Song):
             return NotImplemented 
         return self.name == other.name
+
 class Songs:
     def __init__(self, data = None) -> None:
         self.data: List[Song] = data if data is not None else []

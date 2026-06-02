@@ -119,83 +119,12 @@ pares_pass creates ast.
 
 playlists: artist: title (title: left right or title: king)
 
-"" = SOF, "playlists" = WORD, ":" = SEP, " " = WS, "artist" = WORD, ":" = SEP, " " = WS, "title" = WORD, " " = WS, "(" = L_OP, "title" = WORD, ":" = SEP, " " = WS, "left" = WORD, " " = WS, "right" = WORD, " " = WS, "or" = WORD, " " = WS, "title" = WORD, ":" = SEP, " " = WS, "king" = WORD, ")" = R_OP, "" = EOF
+### QUERY 
+One pass system. I compile the ast into one instruction i run on every single song. This includes fuzzing, and glob for specific proeprtys. Basicly for each instruction in the ast you creat that same instruction but made for a single songs, in a way were i only have to go through every song once to cheack each indivule song against the criteria. I also think instead of storing the song i will store the path to the song. I am basicly treating the path of the song as the hash of the song. This allows me to have a O(1) lookup while not storing multple vertsion of the song in memory or having to copy each song to a new data type. This means a song will become just a wrapper of that hash were when it has to check the main data structer for the song it's self. 
 
-ITER = 0
-results.append(BUFF) results = [SOF]
-CHECK = ITER
-GUESS = TYPE
-ITER ++
-BUFF = "playlists"
-ITER ++
-BUFF += ":"
-results.append(BUFF) results = [SOF, ("playlists:", TYPE)]
-CHECK = ITER
-GUESS = TYPE
-ITER ++
-BUFF = " "
-ITER ++
-BUFF += "artist"
-ITER ++
-BUFF += ":"
-results.append(BUFF) results = [SOF, ("playlists:", TYPE), (" artist:", TYPE)]
-CHECK = ITER
-GUESS = TYPE
-ITER ++
-BUFF = " "
-ITER ++
-BUFF += "title"
-ITER ++
-BUFF += " "
-ITER ++
-GUESS = L_OP
-ITER = CHECK
-ITER ++
-BUFF = " "
-ITER ++
-GUESS = T_VALUE
-ITER = CHECK
-ITER ++
-BUFF = " "
-ITER ++
-GUESS = VALUE
-ITER = CHECK
-ITER ++
-BUFF = " "
-ITER ++
-results.append(BUFF) results = [SOF, ("playlists:", TYPE), (" artist:", TYPE), (" (", L_OP)]
-CHECK = ITER
-GUESS = TYPE
-ITER ++
-BUFF = "title"
-ITER ++
-BUFF += ":"
-results.append(BUFF) results = [SOF, ("playlists:", TYPE), (" artist:", TYPE), (" (", L_OP), ("title:", TYPE)]
-CHECK = ITER
-GUESS = TYPE
-ITER ++
-BUFF = " "
-ITER ++
-ITER = CHECK
-GUESS = L_OP
-ITER ++
-BUFF = " "
-ITER ++
-ITER = CHECK
-GUESS = S_VALUE
-ITER ++
-buff = " "
-ITER ++
-ITER = CHECK
-GUESS = VALUE
-ITER ++
-BUFF = " "
-ITER ++
-BUFF += "left"
+As for how i will acitly store the data i think it makes sense to store the data as a list with operters. This would be like [{"function_to_call": ["arg1", "arg2"]}, "and", {"function_to_call": ["arg1", "arg2"]}]
+This would then in the query function look like going through each song and calling the function or just executing the code on the arguments provided. Basicly each function returns true or false, and then you use boolen operaters to find weather the song matches. This makes it realy easy to add a new thing as you just add a new function to the querying engine, and then add a new key word.
 
-
-
-
-
-
+### TODO
+I should make the parser return defualt for defualt inteasd of having it guess for defults as the querying engine will be much better at guessing. Also it should set scope keys to None if there is not key defined for the scope. Basicly serpate concerns the data base query worryas about defualt cases, and the parser just parsers. This will allow for much more intelgenct choices when it comes to defualts. 
 

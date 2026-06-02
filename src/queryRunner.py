@@ -71,7 +71,7 @@ if __name__ == "__main__":
     lexer = Lexer()
     parser = Parser()
 
-    string = 'all: artist: ironmouse (title: "king*" or title: "left*")'
+    string = 'all: artist: ironmouse (title: "king*" or title: "l'
 
     import time
     tokens = lexer.lex(string)

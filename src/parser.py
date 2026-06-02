@@ -29,6 +29,7 @@ class Parser:
         self.results = Pair()
         self.scope_stack = []
         self.index = 0
+
     def _get_valid_paths(self):
         token = self.tokens[self.index -1]
         if token.token_type is not None:
