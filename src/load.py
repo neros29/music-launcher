@@ -164,6 +164,6 @@ class Load:
         self._save_data()
 
 if __name__ == "__main__":
-    load = Load("/home/neros/Music/", "/home/neros/Documents/projects/music/data/tmp_db.json")
+    load = Load("/home/neros/Music/", "/home/neros/Documents/projects/music/data/db.json")
     load.fill_db()
     #Sabrina Carpenter - House Tour (Official Lyric Video).mp3

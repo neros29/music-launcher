@@ -144,3 +144,16 @@ I should make the parser return defualt for defualt inteasd of having it guess f
     ]
     , 'op': None}
 ]
+
+
+
+(x * .7) + (100 * .3) = 60
+0.7x + 30 = 60
+0.7x = 30
+x = 60 - (100 * 0.3) / 0.7
+
+
+
+
+
+

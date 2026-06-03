@@ -1,6 +1,8 @@
 import os
 from typing import List
 from inputWidget import Token
+from thefuzz import fuzz, process
+from langdef import type_keywords
 from dbQuery import Query, Playlist, Song
 from playBackController import PlayBackController
 from parser import Parser
@@ -17,7 +19,7 @@ class Main:
         self.running = True
         self.parser = Parser()
         self.lexer = Lexer()
-        self.db_path = "/home/neros/Documents/projects/music/data/tmp_db.json"
+        self.db_path = "/home/neros/Documents/projects/music/data/db.json"
         self.query = Query(self.db_path)
         self.socket_file = "/tmp/mpv"
         try:
@@ -36,6 +38,7 @@ class Main:
         self.old_list_text = []
         self.songs = []
         self.curser_index = 0
+        self.old_curser_index = 0
         self.selected = 0
         self.max_time = 0
 
@@ -168,7 +171,7 @@ class Main:
                 self.get_options()
 
     def draw_text(self):
-        if self.old_text == self.text: 
+        if self.old_text == self.text and self.old_curser_index == self.curser_index: 
             return self.old_tokens
         tokens = []
         colors = {
@@ -179,16 +182,21 @@ class Main:
             token_types.L_OP: [0x81, 0xa8, 0xe6],
             token_types.R_OP: [0x81, 0xa8, 0xe6],
         }
+        last_token = None
         for token in self.lexer.lex(self.text):
             if not token.virtual:
                 for ch in token.value:
                     tokens.append(Token(colors[token.token_type], self.ui.bg, ch))
+                last_token = token
+        for type_key in type_keywords:
+            if type_key
         ch = " "
         if 0 <= self.curser_index < len(self.text):
             ch = tokens.pop(self.curser_index).character
         tokens.insert(self.curser_index, Token(self.ui.bg, self.ui.fg, ch, "cursor"))
         self.old_tokens = tokens
         self.old_text = self.text
+        self.old_curser_index = self.curser_index
         return tokens
 
     def run(self):

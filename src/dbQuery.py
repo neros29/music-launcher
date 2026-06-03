@@ -6,8 +6,9 @@ from lexer import Lexer
 import json
 
 class Song:
-    def __init__(self, song_path: str, score_list: List, root: 'Query') -> None:
+    def __init__(self, song_path: str, score_list: List, root: 'Query', query: List[dict]) -> None:
         self.root = root
+        self.query = query
         self.path = song_path
         self.score_list = score_list
 
@@ -21,8 +22,19 @@ class Playlist:
     def __init__(self, songs: List[Song], playlist_name: str, root_song: Optional[Song]) -> None:
         self.name = playlist_name
         self.root_song = root_song
-        self.songs = songs
+        self.songs: List[Song] = songs
         self.artist = self._get_artist()
+        self._sort_song()
+        self.score = self._get_score()
+
+    def _sort_song(self):
+        self.songs.sort(key=lambda x: x.get("playlists")[self.name] if x.get("playlists")[self.name] is not None else float("inf"))
+
+    def _get_score(self):
+        score = 0
+        for song in self.songs:
+            score += song.score
+        return score / len(self.songs)
 
     def _get_artist(self):
         results = {}
@@ -90,12 +102,15 @@ class Query:
         if cached:
             return cached
         min_score = 60
+        p_weight = 0.70
+        s_weight = 1 - p_weight
         p_ratio = fuzz.partial_token_sort_ratio(value, query)
-        if p_ratio < min_score - 5:
+        min_p_ratio = (min_score - (100 * s_weight)) / p_weight
+        if p_ratio < min_p_ratio:
             self._fuzz_cache[(value, query)] = 0
             return 0
         s_ratio = fuzz.token_sort_ratio(value, query)
-        score = ((p_ratio * 0.80) + (s_ratio * 0.20))
+        score = ((p_ratio * p_weight) + (s_ratio * s_weight))
         result = max((score - min_score) / (100 - min_score), 0)
         self._fuzz_cache[(value, query)] = result
         return result
@@ -166,7 +181,7 @@ class Query:
         for song in self.data:
             result = self._score_song(song, querys)
             if result[0]:
-                results.append(Song(song, result[1], self))
+                results.append(Song(song, result[1], self, querys))
         return results
 
     def _compile_ast(self, ast: Pair, i_op = None):
@@ -189,7 +204,7 @@ class Query:
         for song in self.data:
             for playlist in self.data[song].get("playlists", []):
                 if playlist in playlists_names:
-                    playlists_names[playlist]["songs"].append(Song(song, [], self))
+                    playlists_names[playlist]["songs"].append(Song(song, self._score_song(song, playlists_names[playlist]["root_song"].query)[1], self, playlists_names[playlist]["root_song"].query))
         results = []
         for playlist in playlists_names:
             results.append(Playlist(playlists_names[playlist]["songs"], playlist, playlists_names[playlist]["root_song"]))
@@ -203,14 +218,16 @@ class Query:
         if asm[0]["key"] == "songs":
             return results
         if asm[0]["key"] == "all":
-            playlists = Playlist(results, "", None)
-            return playlists
-        return self.get_playlsits(results)
+            return Playlist(results, "", None)
+        playlists = self.get_playlsits(results)
+        playlists.sort(key=lambda x: x.score, reverse=True)
+        return playlists
+
 
         
 
 if __name__ == "__main__":
-    query = Query("data/tmp_db.json")
+    query = Query("data/db.json")
     parser = Parser()
     lexer = Lexer()
 
@@ -218,7 +235,7 @@ if __name__ == "__main__":
     string = "playlists: a"
     string = "songs: songs:(artist: ironmouse or artist: shirobeats) and (title: 'king*' or title: 'show off*')"
     string = "playlists: playlists: 'deeply friendship' or playlists: 'we are so back'"
-    string = "playlists: playlists: Red (Taylor's Version)"
+    string = "playlists: album: red taylors vertoin"
     tokens = lexer.lex(string)
     ast = parser.parse(tokens)
     import time
@@ -227,7 +244,8 @@ if __name__ == "__main__":
     start = time.time()
     results = query.query(ast)
     print(f"query.query took {time.time() - start}")
+    print(results[0].name)
     for song in results[0]:
         print(f"songs: {song.get('title')}: {song.score_list}")
-    # for playlist in results[0]:
-    #     print(f"{playlist.name}         {playlist.artist}")
+    for playlist in results:
+        print(f"{playlist.name}         {playlist.artist}")
