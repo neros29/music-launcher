@@ -13,7 +13,6 @@ class ListWidget:
         self.surface1.fill_bg(0x42, 0x3e, 0x58)
         self.fg = fg
         self.bg = bg
-        self.current_elements: List[str] = []
         self.lab = Label(self.surface, "", [0, 0])
         self.bottom = 0
         self.margin = 5
@@ -40,8 +39,6 @@ class ListWidget:
         self.surface1.set_offset(self.surface.offset()[0], self.surface.offset()[1] + selected)
 
     def update(self, elements: List[str], selected=0):
-        # if elements != self.current_elements:
         self._render(elements, selected)
-        self.current_elements = elements
         self._move_selected(selected - self.bottom)
 

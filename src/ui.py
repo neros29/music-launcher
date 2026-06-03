@@ -25,6 +25,9 @@ class Ui:
         self.fg = [0xcf, 0xce, 0xd4]
         self.search_bar_size = [self.screen_size[0] - 10, 3]
         self.search_bar_offset = [(self.screen_size[0] - self.search_bar_size[0]) // 2, (self.screen_size[1] - self.search_bar_size[1]) // 7]
+        self.old_tokens = None
+        self.old_elements = None
+        self.old_selected = None
         self.max = 0
 
 
@@ -35,9 +38,13 @@ class Ui:
         self.song_list = SongList(self.song_list_size, self.song_list_offset, self.tui, self.fg, self.bg)
 
     def update(self, tokens: List[Token], elements: List[str], selected):
-        self.song_list.update(elements, selected)
-        keys = self.search_bar.update(tokens)
+        if self.old_elements != elements or self.old_selected != selected:
+            self.old_elements = elements
+            self.old_selected = selected
+            self.song_list.update(elements, selected)
+        if self.old_tokens != tokens:
+            self.old_tokens = tokens
+            self.search_bar.render_text(tokens)
         self.tui.update_screen()
-        self.screen_size = self.tui.get_screen_size()
-        return keys
+        return self.search_bar.get_input()
 

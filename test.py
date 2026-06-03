@@ -2,14 +2,12 @@ from re import escape
 from sys import path
 path.append("src/")
 from pathlib import Path
-from query import Query, Playlist, Songs, Song
-from queryRunner import QueryRunner
 from lexer import Lexer, basic_types
 from parser import Parser
 from playBackController import PlayBackController
+from dbQuery import Query
 
-query = Query(Path("~/Documents/projects/music/data/db.json").expanduser())
-qr = QueryRunner(query)
+query = Query("data/tmp_db.json")
 file = "/tmp/mpv"
 try:
     pbc = PlayBackController(file)

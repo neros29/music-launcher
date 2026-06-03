@@ -17,7 +17,7 @@ class Main:
         self.running = True
         self.parser = Parser()
         self.lexer = Lexer()
-        self.db_path = "/home/neros/Documents/projects/music/data/db.json"
+        self.db_path = "/home/neros/Documents/projects/music/data/tmp_db.json"
         self.query = Query(self.db_path)
         self.socket_file = "/tmp/mpv"
         try:
@@ -29,7 +29,11 @@ class Main:
 
         self.ui = Ui(self.log)
         self.text: str = ""
+        self.old_text: str = ""
+        self.old_tokens = []
         self.options = []
+        self.old_options = []
+        self.old_list_text = []
         self.songs = []
         self.curser_index = 0
         self.selected = 0
@@ -91,6 +95,8 @@ class Main:
         width = self.ui.song_list_size[0]
         text = []
         results = self.options
+        if self.old_options == results:
+            return self.old_list_text
         if results is None:
             text.append(f"Invalid query")
         else:
@@ -132,6 +138,8 @@ class Main:
                     songs.append([result.path])
                     index += 1
             self.songs = songs
+        self.old_options = self.options
+        self.old_list_text = text
         return text
 
     def play(self, songs):
@@ -160,6 +168,8 @@ class Main:
                 self.get_options()
 
     def draw_text(self):
+        if self.old_text == self.text: 
+            return self.old_tokens
         tokens = []
         colors = {
             token_types.TYPE: [0xd2, 0x8c, 0x89],  
@@ -177,6 +187,8 @@ class Main:
         if 0 <= self.curser_index < len(self.text):
             ch = tokens.pop(self.curser_index).character
         tokens.insert(self.curser_index, Token(self.ui.bg, self.ui.fg, ch, "cursor"))
+        self.old_tokens = tokens
+        self.old_text = self.text
         return tokens
 
     def run(self):

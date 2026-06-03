@@ -69,7 +69,7 @@ valid_syntax_paths = {
         token_types.VALUE   : [token_types.OP, token_types.TYPE, token_types.L_OP, token_types.R_OP, token_types.EOF, token_types.VALUE],
         token_types.S_VALUE : [token_types.OP, token_types.TYPE, token_types.L_OP, token_types.R_OP, token_types.EOF],
         token_types.OP      : [token_types.TYPE, token_types.L_OP],
-        token_types.L_OP    : [token_types.TYPE, token_types.VALUE, token_types.S_VALUE],
+        token_types.L_OP    : [token_types.TYPE],
         token_types.R_OP    : [token_types.TYPE, token_types.R_OP, token_types.OP, token_types.EOF],
         }
 

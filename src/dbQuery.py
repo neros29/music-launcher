@@ -210,7 +210,7 @@ class Query:
         
 
 if __name__ == "__main__":
-    query = Query("data/db.json")
+    query = Query("data/tmp_db.json")
     parser = Parser()
     lexer = Lexer()
 
@@ -218,6 +218,7 @@ if __name__ == "__main__":
     string = "playlists: a"
     string = "songs: songs:(artist: ironmouse or artist: shirobeats) and (title: 'king*' or title: 'show off*')"
     string = "playlists: playlists: 'deeply friendship' or playlists: 'we are so back'"
+    string = "playlists: playlists: Red (Taylor's Version)"
     tokens = lexer.lex(string)
     ast = parser.parse(tokens)
     import time
@@ -226,7 +227,7 @@ if __name__ == "__main__":
     start = time.time()
     results = query.query(ast)
     print(f"query.query took {time.time() - start}")
-    # for song in results:
-    #     print(f"songs: {song.get('title')}: {song.score_list}")
-    # for playlist in results:
+    for song in results[0]:
+        print(f"songs: {song.get('title')}: {song.score_list}")
+    # for playlist in results[0]:
     #     print(f"{playlist.name}         {playlist.artist}")

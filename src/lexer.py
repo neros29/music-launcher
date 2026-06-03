@@ -318,7 +318,7 @@ class Lexer:
 
 if __name__ == "__main__":
     string = 'playlists: artist: "*iron*" (title: king and title: "Left*")'
-    string = "playlists: (artist: ironmouse (title: 'king*"
+    string = r"playlists: playlists: 'Red (Taylor's Version)'"
     tk = Lexer()
     import time
     print(f"{string=}")

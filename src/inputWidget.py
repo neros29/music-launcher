@@ -51,6 +51,7 @@ class InputWidget:
         self.curser_shown = True
         self.last_time = time.time()
         self.keys = self._register_keys()
+        self.old_tokens = None
 
     def _register_keys(self):
         keys = list(string.printable)
@@ -60,7 +61,7 @@ class InputWidget:
         self.surface.register_keys(s_chs + keys)
         return keys
 
-    def _get_input(self):
+    def get_input(self):
         inputs = []
         for key in self.special_keys:
             if self.surface.get_event(key):
@@ -96,7 +97,4 @@ class InputWidget:
             self.curser_shown = False if self.curser_shown else True
             self.last_time = time.time()
 
-    def update(self, tokens: List):
-        self.render_text(tokens)
-        return self._get_input()
         
