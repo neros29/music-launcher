@@ -2,6 +2,7 @@ from pathlib import Path
 from typing import List, Optional
 from thefuzz import fuzz
 from parser import Pair, Parser
+from random import shuffle
 from lexer import Lexer
 import json
 
@@ -28,13 +29,14 @@ class Playlist:
         self.score = self._get_score()
 
     def _sort_song(self):
-        self.songs.sort(key=lambda x: x.get("playlists")[self.name] if x.get("playlists")[self.name] is not None else float("inf"))
+        if self.name != "":
+            self.songs.sort(key=lambda x: x.get("playlists")[self.name] if x.get("playlists")[self.name] is not None else float("inf"))
 
     def _get_score(self):
         score = 0
         for song in self.songs:
             score += song.score
-        return score / len(self.songs)
+        return score / max(len(self.songs), 1)
 
     def _get_artist(self):
         results = {}
@@ -57,7 +59,9 @@ class Playlist:
         
         # Tiebreak by who appeared first in the metadata
         top_artists.sort(key=lambda a: first_seen_order[a])
-        return top_artists[0]
+        if top_artists:
+            return top_artists[0]
+        return ""
 
     def __iter__(self):
         for i in self.songs:
@@ -219,6 +223,16 @@ class Query:
             return results
         if asm[0]["key"] == "all":
             return Playlist(results, "", None)
+        if asm[0]["key"] == "all_shuffled":
+            playlist = Playlist(results, "", None)
+            shuffle(playlist.songs)
+            return playlist
+        if asm[0]["key"] == "shuffled":
+            playlists = self.get_playlsits(results)
+            playlists.sort(key=lambda x: x.score, reverse=True)
+            for playlist in playlists:
+                shuffle(playlist.songs)
+            return playlists
         playlists = self.get_playlsits(results)
         playlists.sort(key=lambda x: x.score, reverse=True)
         return playlists
@@ -235,10 +249,11 @@ if __name__ == "__main__":
     string = "playlists: a"
     string = "songs: songs:(artist: ironmouse or artist: shirobeats) and (title: 'king*' or title: 'show off*')"
     string = "playlists: playlists: 'deeply friendship' or playlists: 'we are so back'"
-    string = "playlists: album: red taylors vertoin"
+    string = "shuffled: playlists: deepl friendship"
     tokens = lexer.lex(string)
     ast = parser.parse(tokens)
     import time
+    print(tokens)
     print(string)
     print(ast)
     start = time.time()

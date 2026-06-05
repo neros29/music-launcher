@@ -35,6 +35,13 @@ type_keywords = {
         "songs": "songs",
         "song": "songs",
         "all": "all",
+        "shuffled": "shuffled",
+        "shuffle": "shuffled",
+        "salbum": "shuffled",
+        "salbums": "shuffled",
+        "splaylists": "shuffled",
+        "splaylist": "shuffled",
+        "ashuffled": "all_shuffled"
         }
 
 operator_keywords = {
@@ -79,6 +86,6 @@ valid_output_paths = {
         token_types.VALUE   : [token_types.OP, token_types.R_OP, token_types.EOF],
         token_types.S_VALUE : [token_types.OP, token_types.R_OP,  token_types.EOF],
         token_types.OP      : [token_types.TYPE],
-        token_types.L_OP    : [token_types.TYPE],
+        token_types.L_OP    : [token_types.TYPE, token_types.S_VALUE, token_types.VALUE],
         token_types.R_OP    : [token_types.TYPE, token_types.R_OP, token_types.OP, token_types.EOF],
         }

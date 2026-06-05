@@ -1,22 +1,50 @@
 from pathlib import Path
+import subprocess
 import hashlib
 import socket
 import json
+import time
 from typing import Dict, List
 
 class SendCmd:
-    def __init__(self, ipc_file: str) -> None:
-        self.client = self._init_socket(ipc_file)
+    def __init__(self, ipc_file: str, mpv_cmd) -> None:
+        self.ipc_file = ipc_file
+        self._mpv_cmd = mpv_cmd
+        self._start_client()
         self.events = []
         self.id = 0
 
-    def _init_socket(self, ipc_file):
+    def _init_socket(self):
         client = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-        client.connect(ipc_file)
+        client.connect(self.ipc_file)
+        client.settimeout(5.0)
         return client
 
-    def exit(self):
-        self.client.close()
+    def _start_client(self):
+        try:
+            self.client = self._init_socket()
+        except (FileNotFoundError, ConnectionRefusedError):
+            self._start_mpv()
+            for _ in range(10):
+                try:
+                    self.client = self._init_socket()
+                    return
+                except (FileNotFoundError, ConnectionRefusedError):
+                    time.sleep(0.5)
+                    continue
+            raise ConnectionError("Failed to start client")
+
+    def _start_mpv(self):
+        use_shell = isinstance(self._mpv_cmd, str)
+        subprocess.Popen(
+            self._mpv_cmd,
+            shell=use_shell,
+            stdout=subprocess.DEVNULL, 
+            stderr=subprocess.DEVNULL,
+            stdin=subprocess.DEVNULL,
+            start_new_session=True,
+            close_fds=True
+        )
 
     def send(self, cmd_dict: Dict):
         cmd_id = self.id
@@ -24,10 +52,23 @@ class SendCmd:
         cmd_dict["request_id"] = cmd_id
         cmd = json.dumps(cmd_dict)
         cmd += "\n"
-        self.client.send(cmd.encode())
+        try:
+            self.client.send(cmd.encode())
+        except BrokenPipeError:
+            self._start_client()
+            for i in range(10):
+                try:
+                    self.client.send(cmd.encode())
+                    break
+                except BrokenPipeError:
+                    if i >= 9:
+                        raise BrokenPipeError("Reached max retries")
+                    time.sleep(0.5)
+                    continue
         while True:
             response = b''
             while True:
+                self.client.settimeout(2.0)
                 chunk = self.client.recv(1024)
                 if not chunk:
                     break
@@ -48,15 +89,19 @@ class SendCmd:
                     print("[SendCmd] Error Decoding value: " + line)
                     continue
 
+    def exit(self):
+        self.client.close()
+
 class PlayBackController:
-    def __init__(self, ipc_file: str) -> None:
-        self._cmd_runner = SendCmd(ipc_file)
+    def __init__(self, ipc_file: str, mpv_cmd: str) -> None:
+        self._cmd_runner = SendCmd(ipc_file, mpv_cmd)
 
     def _hash_playlist(self, songs: List[str]):
         hash = hashlib.sha256()
         for song in songs:
             hash.update(song.encode())
         return hash.hexdigest()
+
 
     def _write_m3u(self, songs: List[str]) -> str:
         path = Path("~/.cache/music-control/").expanduser()
@@ -96,6 +141,17 @@ class PlayBackController:
                 responses.append(response)
         return responses
 
+    def _append(self, songs: List[str]):
+        responses = []
+        for song in songs: 
+            if Path(song).is_file():
+                cmd = {
+                        "command": ["loadfile", song, "append"]
+                }
+                response = self._cmd_runner.send(cmd)
+                responses.append(response)
+        return responses
+
     def exit(self):
         self._cmd_runner.exit()
 
@@ -107,5 +163,9 @@ class PlayBackController:
             return self._replace_large(songs)
         else:
             return self._replace(songs)
-            
+
+    def add_to_playlists(self, songs: List[str]):
+        if not isinstance(songs, list):
+            raise ValueError("Songs must be a list")
+        return self._append(songs)
 

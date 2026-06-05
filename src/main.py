@@ -1,8 +1,7 @@
 import os
 from typing import List
 from inputWidget import Token
-from thefuzz import fuzz, process
-from langdef import type_keywords
+from langdef import type_keywords, operator_keywords
 from dbQuery import Query, Playlist, Song
 from playBackController import PlayBackController
 from parser import Parser
@@ -22,8 +21,9 @@ class Main:
         self.db_path = "/home/neros/Documents/projects/music/data/db.json"
         self.query = Query(self.db_path)
         self.socket_file = "/tmp/mpv"
+        self._mpv_cmd = f"mpv --input-ipc-server={self.socket_file} --idle=yes --player-operation-mode=pseudo-gui"
         try:
-            self.pbc = PlayBackController(self.socket_file)
+            self.pbc = PlayBackController(self.socket_file, self._mpv_cmd)
         except FileNotFoundError:
             print(f"File {self.socket_file} dose not exist. Please make sure that mpv is running in ipc server mode with the correct socket path.")
             exit()
@@ -33,6 +33,7 @@ class Main:
         self.text: str = ""
         self.old_text: str = ""
         self.old_tokens = []
+        self.replace = ""
         self.options = []
         self.old_options = []
         self.old_list_text = []
@@ -49,7 +50,15 @@ class Main:
                 "Enter": self._handle_enter,
                 "Down": self._move_down,
                 "Up": self._move_up,
+                "Tab": self._replace,
             }
+
+    def _replace(self):
+        if self.replace != "":
+            token = self.lexer.split_string(self.text)
+            self.text = self.text[:-len(token[-2].value)]
+            self.text += self.replace
+            self.curser_index = len(self.text)
 
     def _move_down(self):
         self.selected = min(len(self.songs) -1, self.selected + 1)
@@ -133,7 +142,7 @@ class Main:
                     artist = f"artist: {result.get('artist')}"
                     if len(artist) > max_artist_len:
                         artist = artist[:max_artist_len] + "..."
-                    duration = f"duration: {result.get('duration')}"
+                    duration = f"duration: {(result.get('duration') / 60):.2f}"
                     first_space = (width // 2) - len(name)
                     secound_space = (width - (first_space + len(name) + len(artist) + len(duration)))
                     playlist_text = name + " "* first_space + artist + " " * secound_space + duration
@@ -182,14 +191,32 @@ class Main:
             token_types.L_OP: [0x81, 0xa8, 0xe6],
             token_types.R_OP: [0x81, 0xa8, 0xe6],
         }
-        last_token = None
         for token in self.lexer.lex(self.text):
             if not token.virtual:
                 for ch in token.value:
                     tokens.append(Token(colors[token.token_type], self.ui.bg, ch))
-                last_token = token
-        for type_key in type_keywords:
-            if type_key
+        
+        last_token = self.lexer.split_string(self.text)
+        key_word = ""
+        all_words = {}
+        all_words.update(type_keywords)
+
+        all_words.update(operator_keywords)
+        for type_keyword in all_words:
+            if type_keyword.startswith(last_token[-2].value):
+                key_word = type_keyword
+                break
+        if key_word != "":
+            if key_word in type_keywords:
+                self.replace = f"{key_word}: "
+            elif key_word in operator_keywords:
+                self.replace = f"{key_word} "
+            for ch in key_word[len(last_token[-2].value):]:
+                tokens.append(Token([0x91, 0x88, 0xa8], self.ui.bg, ch))
+        else:
+            self.replace = ""
+
+        
         ch = " "
         if 0 <= self.curser_index < len(self.text):
             ch = tokens.pop(self.curser_index).character

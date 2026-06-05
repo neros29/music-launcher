@@ -5,10 +5,11 @@ from pathlib import Path
 from lexer import Lexer, basic_types
 from parser import Parser
 from playBackController import PlayBackController
-from dbQuery import Query
+from dbQuery import Query, Playlist, Song
 
-query = Query("data/tmp_db.json")
 file = "/tmp/mpv"
+db_file  = "/home/neros/Documents/projects/music/data/db.json"
+query = Query(db_file)
 try:
     pbc = PlayBackController(file)
 except FileNotFoundError:
@@ -29,21 +30,21 @@ while True:
     if ast == None:
         print("Invalid search query")
         continue
-    results = qr.run(ast)
+    results = query.query(ast)
     if type(results) == Playlist:
         print(f"playing custom playlist from query")
-        pbc.replace_playlist(results.get_playable())
+        pbc.replace_playlist([i.path for i in results])
         continue
     index = 0
     songs = []
     for result in results:
         if type(result) == Playlist:
-            print(f"{index}: {result.playlist_name}")
+            print(f"{index}: {result.name}")
             songs.append(result)
             index += 1
         elif type(result) == Song:
             print(f"{index}: {result}")
-            songs.append(result.name)
+            songs.append(result.get("title"))
             index += 1
     try:
         i = int(input("Index you want to hear: "))
@@ -55,8 +56,8 @@ while True:
         continue
 
     if type(songs[0]) == Playlist:
-        print(f"playing: {songs[i].playlist_name}")
-        pbc.replace_playlist(songs[i].get_playable())
+        print(f"playing: {songs[i].name}")
+        pbc.replace_playlist([i.path for i in songs[i]])
         continue
     print(f"playing: {songs[i]}")
     pbc.replace_playlist([songs[i]])

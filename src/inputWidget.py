@@ -45,7 +45,7 @@ class InputWidget:
             "Right": "Right",
             "Up": "Up",
             "Down": "Down",
-            chr(0x09): "tab",
+            chr(0x09): "Tab",
             chr(0x13): "ctrl_s",
         }
         self.curser_shown = True
