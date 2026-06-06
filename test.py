@@ -1,17 +1,16 @@
-from re import escape
 from sys import path
 path.append("src/")
-from pathlib import Path
-from lexer import Lexer, basic_types
+from lexer import Lexer
 from parser import Parser
 from playBackController import PlayBackController
 from dbQuery import Query, Playlist, Song
 
 file = "/tmp/mpv"
 db_file  = "/home/neros/Documents/projects/music/data/db.json"
+mpv_cmd = f"mpv --input-ipc-server=/tmp/mpv --idle=yes --player-operation-mode=pseudo-gui"
 query = Query(db_file)
 try:
-    pbc = PlayBackController(file)
+    pbc = PlayBackController(file, mpv_cmd)
 except FileNotFoundError:
     print(f"File {file} dose not exist. Please make sure that mpv is running in ipc server mode with the correct socket path.")
     exit()

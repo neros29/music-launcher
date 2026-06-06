@@ -19,6 +19,10 @@ class Song:
     def get(self, key: str):
         return self.root.data[self.path][key]
 
+class Append(List):
+    pass
+
+
 class Playlist:
     def __init__(self, songs: List[Song], playlist_name: str, root_song: Optional[Song]) -> None:
         self.name = playlist_name
@@ -221,46 +225,30 @@ class Query:
         results.sort(key=lambda x: x.score, reverse=True)
         if asm[0]["key"] == "songs":
             return results
+
+        if asm[0]["key"] == "add":
+            return Append(results)
         if asm[0]["key"] == "all":
             return Playlist(results, "", None)
-        if asm[0]["key"] == "all_shuffled":
-            playlist = Playlist(results, "", None)
-            shuffle(playlist.songs)
-            return playlist
-        if asm[0]["key"] == "shuffled":
+
+        if asm[0]["key"] == "shuffle":
             playlists = self.get_playlsits(results)
             playlists.sort(key=lambda x: x.score, reverse=True)
             for playlist in playlists:
                 shuffle(playlist.songs)
             return playlists
+
         playlists = self.get_playlsits(results)
         playlists.sort(key=lambda x: x.score, reverse=True)
         return playlists
 
-
-        
-
 if __name__ == "__main__":
-    query = Query("data/db.json")
+    lexer  = Lexer()
     parser = Parser()
-    lexer = Lexer()
+    query = Query("data/db.json")
 
-    string = "songs: artist: ironmouse (title: 'king*' or title: 'l"
-    string = "playlists: a"
-    string = "songs: songs:(artist: ironmouse or artist: shirobeats) and (title: 'king*' or title: 'show off*')"
-    string = "playlists: playlists: 'deeply friendship' or playlists: 'we are so back'"
-    string = "shuffled: playlists: deepl friendship"
+    string = "add: title: ironmouse"
     tokens = lexer.lex(string)
     ast = parser.parse(tokens)
-    import time
-    print(tokens)
-    print(string)
-    print(ast)
-    start = time.time()
     results = query.query(ast)
-    print(f"query.query took {time.time() - start}")
-    print(results[0].name)
-    for song in results[0]:
-        print(f"songs: {song.get('title')}: {song.score_list}")
-    for playlist in results:
-        print(f"{playlist.name}         {playlist.artist}")
+

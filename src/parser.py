@@ -136,24 +136,3 @@ class Parser:
         self.pairs = self._get_pair()
         self.results = Pair(self.defualts[token_types.TYPE].replace(" ", "").replace(":", ""), "scope", self._get_pair()) if len(self.pairs) > 1 or len(self.pairs) <= 0 else self.pairs[0]
         return self.results
-
-if __name__ == "__main__":
-    string = 'playlists: artist: "*iron*" (title: king | title: "Left*")'
-    string = "songs: songs: (artist: ironmouse or artist: shirobeats) and (title: 'king*' or title: 'show off*')"
-    print(f"{string=}")
-    parser = Parser()
-    tk = Lexer()
-    tokens: Tokens = tk.lex(string)
-    parser.tokens = tokens
-    parser._fix_tokens()
-    secound = parser.tokens
-    print("string='", end="")
-    for i in secound:
-        print(i, end="")
-    print("'")
-    parser.index = 0
-    import time
-    start = time.time()
-    results = parser.parse(tokens)
-    print(f"{time.time()}")
-    print(f"{results=}")

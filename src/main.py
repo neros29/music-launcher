@@ -1,9 +1,10 @@
 import os
-from typing import List
+from typing import List, Optional
 from inputWidget import Token
 from langdef import type_keywords, operator_keywords
-from dbQuery import Query, Playlist, Song
+from dbQuery import Append, Query, Playlist, Song
 from playBackController import PlayBackController
+from threading import Thread, Lock
 from parser import Parser
 from lexer import Lexer, token_types
 import logging
@@ -16,32 +17,35 @@ class Main:
         logging.getLogger('thefuzz').setLevel(logging.ERROR)
         self.log = open("logs/log", "a")
         self.running = True
-        self.parser = Parser()
-        self.lexer = Lexer()
+
         self.db_path = "/home/neros/Documents/projects/music/data/db.json"
-        self.query = Query(self.db_path)
         self.socket_file = "/tmp/mpv"
         self._mpv_cmd = f"mpv --input-ipc-server={self.socket_file} --idle=yes --player-operation-mode=pseudo-gui"
-        try:
-            self.pbc = PlayBackController(self.socket_file, self._mpv_cmd)
-        except FileNotFoundError:
-            print(f"File {self.socket_file} dose not exist. Please make sure that mpv is running in ipc server mode with the correct socket path.")
-            exit()
-            
 
+        self.pbc_lock = Lock()
+        self.pbc: Optional[PlayBackController] = None
+        self.t = Thread(target=self._start_pbc, daemon=True)
+        self.t.start()
+        self.query: Query = Query(self.db_path)
+        self.parser = Parser()
+        self.lexer = Lexer()
         self.ui = Ui(self.log)
+
         self.text: str = ""
         self.old_text: str = ""
+        self.replace: str = ""
+
         self.old_tokens = []
-        self.replace = ""
         self.options = []
         self.old_options = []
         self.old_list_text = []
         self.songs = []
+
+        self.append = False
         self.curser_index = 0
         self.old_curser_index = 0
         self.selected = 0
-        self.max_time = 0
+        self.frame_rate = 60
 
         self.special_keys = {
                 "Backspace": self._backspace,
@@ -52,6 +56,10 @@ class Main:
                 "Up": self._move_up,
                 "Tab": self._replace,
             }
+
+    def _start_pbc(self):
+        with self.pbc_lock:
+            self.pbc = PlayBackController(self.socket_file, self._mpv_cmd)
 
     def _replace(self):
         if self.replace != "":
@@ -87,7 +95,6 @@ class Main:
         first = self.text[:max(0, self.curser_index - 1)]
         self.text = first + secound
         self.curser_index = max(0, self.curser_index - 1)
-
         self.get_options()
 
     def get_options(self):
@@ -96,12 +103,7 @@ class Main:
         if ast is None:
             self.options = None
             return
-        start = time.time()
         self.options = self.query.query(ast)
-        end = time.time() - start
-        if end > self.max_time:
-            self.max_time = end
-            print(f"'{self.text}' took: {self.max_time}", file=self.log)
 
     def draw_list(self):
         width = self.ui.song_list_size[0]
@@ -115,6 +117,8 @@ class Main:
             if type(results) == Playlist:
                 self.songs = [i.path for i in results]
                 text.append(f"playing custom playlist from query")
+            if type(results) == Append:
+                self.append = True
             index = 0
             songs = []
             max_name_len = (width // 2) - 5
@@ -155,7 +159,12 @@ class Main:
         return text
 
     def play(self, songs):
-        self.pbc.replace_playlist(songs)
+        with self.pbc_lock:
+            print(f"suff {self.append}", file=self.log)
+            if self.append:
+                self.append = False
+                self.pbc.add_to_playlists(songs)
+            self.pbc.replace_playlist(songs)
 
     def _add_character(self, key):
         first = self.text[:self.curser_index]
@@ -203,26 +212,24 @@ class Main:
 
         all_words.update(operator_keywords)
         for type_keyword in all_words:
-            if type_keyword.startswith(last_token[-2].value):
-                key_word = type_keyword
-                break
+            if len(last_token[-2].value) > 1:
+                if type_keyword.startswith(last_token[-2].value):
+                    key_word = type_keyword
+                    break
         if key_word != "":
             if key_word in type_keywords:
                 self.replace = f"{key_word}: "
             elif key_word in operator_keywords:
                 self.replace = f"{key_word} "
-            for ch in key_word[len(last_token[-2].value):]:
+            for ch in self.replace[len(last_token[-2].value):]:
                 tokens.append(Token([0x91, 0x88, 0xa8], self.ui.bg, ch))
         else:
             self.replace = ""
-
-        
         ch = " "
-        if 0 <= self.curser_index < len(self.text):
+        if 0 <= self.curser_index < len(self.text) + len(self.replace):
             ch = tokens.pop(self.curser_index).character
         tokens.insert(self.curser_index, Token(self.ui.bg, self.ui.fg, ch, "cursor"))
         self.old_tokens = tokens
-        self.old_text = self.text
         self.old_curser_index = self.curser_index
         return tokens
 
@@ -230,8 +237,7 @@ class Main:
         frame_max = 0
         max_text = ""
         to_print = ""
-        frame_rate = 60
-        frame_time = 1/60
+        frame_time = 1 / self.frame_rate
         last_frame = time.perf_counter()
         os.system("clear")
         while self.running:

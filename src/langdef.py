@@ -35,13 +35,8 @@ type_keywords = {
         "songs": "songs",
         "song": "songs",
         "all": "all",
-        "shuffled": "shuffled",
-        "shuffle": "shuffled",
-        "salbum": "shuffled",
-        "salbums": "shuffled",
-        "splaylists": "shuffled",
-        "splaylist": "shuffled",
-        "ashuffled": "all_shuffled"
+        "shuffle": "shuffle",
+        "add": "add",
         }
 
 operator_keywords = {
