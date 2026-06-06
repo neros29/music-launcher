@@ -2,7 +2,7 @@ import os
 from typing import List, Optional
 from inputWidget import Token
 from langdef import type_keywords, operator_keywords
-from dbQuery import Append, Query, Playlist, Song
+from dbQuery import Append, NextSong, Query, Playlist, Song
 from playBackController import PlayBackController
 from threading import Thread, Lock
 from parser import Parser
@@ -21,6 +21,7 @@ class Main:
         self.db_path = "/home/neros/Documents/projects/music/data/db.json"
         self.socket_file = "/tmp/mpv"
         self._mpv_cmd = f"mpv --input-ipc-server={self.socket_file} --idle=yes --player-operation-mode=pseudo-gui"
+        self._playback_cmd= f'hyprctl dispatch \'hl.dsp.exec_cmd("{self._mpv_cmd}", {{ workspace = "8 silent" }})\''
 
         self.pbc_lock = Lock()
         self.pbc: Optional[PlayBackController] = None
@@ -42,6 +43,7 @@ class Main:
         self.songs = []
 
         self.append = False
+        self.next_song = False
         self.curser_index = 0
         self.old_curser_index = 0
         self.selected = 0
@@ -59,7 +61,7 @@ class Main:
 
     def _start_pbc(self):
         with self.pbc_lock:
-            self.pbc = PlayBackController(self.socket_file, self._mpv_cmd)
+            self.pbc = PlayBackController(self.socket_file, self._playback_cmd)
 
     def _replace(self):
         if self.replace != "":
@@ -117,8 +119,12 @@ class Main:
             if type(results) == Playlist:
                 self.songs = [i.path for i in results]
                 text.append(f"playing custom playlist from query")
+
             if type(results) == Append:
                 self.append = True
+
+            if type(results) == NextSong:
+                self.next_song = True
             index = 0
             songs = []
             max_name_len = (width // 2) - 5
@@ -160,11 +166,15 @@ class Main:
 
     def play(self, songs):
         with self.pbc_lock:
-            print(f"suff {self.append}", file=self.log)
+            assert self.pbc is not None, "to fix lsp"
             if self.append:
                 self.append = False
                 self.pbc.add_to_playlists(songs)
-            self.pbc.replace_playlist(songs)
+            elif self.next_song:
+                self.next_song = False
+                self.pbc.add_next_song(songs)
+            else:
+                self.pbc.replace_playlist(songs)
 
     def _add_character(self, key):
         first = self.text[:self.curser_index]

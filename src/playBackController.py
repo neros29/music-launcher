@@ -39,8 +39,8 @@ class SendCmd:
         subprocess.Popen(
             self._mpv_cmd,
             shell=use_shell,
-            stdout=subprocess.DEVNULL, 
-            stderr=subprocess.DEVNULL,
+            stderr=open("logs/mpv.err", "a"),
+            stdout=open("logs/mpv.out", "a"),
             stdin=subprocess.DEVNULL,
             start_new_session=True,
             close_fds=True
@@ -152,6 +152,17 @@ class PlayBackController:
                 responses.append(response)
         return responses
 
+    def _insert(self, songs: List[str]):
+        responses = []
+        for song in songs: 
+            if Path(song).is_file():
+                cmd = {
+                        "command": ["loadfile", song, "insert-next"]
+                }
+                response = self._cmd_runner.send(cmd)
+                responses.append(response)
+        return responses
+
     def exit(self):
         self._cmd_runner.exit()
 
@@ -168,4 +179,9 @@ class PlayBackController:
         if not isinstance(songs, list):
             raise ValueError("Songs must be a list")
         return self._append(songs)
+
+    def add_next_song(self, songs: List[str]):
+        if not isinstance(songs, list):
+            raise ValueError("Songs must be a list")
+        return self._insert(songs)
 

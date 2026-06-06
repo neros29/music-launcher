@@ -22,6 +22,8 @@ class Song:
 class Append(List):
     pass
 
+class NextSong(List):
+    pass
 
 class Playlist:
     def __init__(self, songs: List[Song], playlist_name: str, root_song: Optional[Song]) -> None:
@@ -223,15 +225,20 @@ class Query:
         asm = self._compile_ast(ast)
         results = self._query_db(asm)
         results.sort(key=lambda x: x.score, reverse=True)
+
         if asm[0]["key"] == "songs":
             return results
 
-        if asm[0]["key"] == "add":
+        if asm[0]["key"] == "add-to-end":
             return Append(results)
-        if asm[0]["key"] == "all":
+
+        if asm[0]["key"] == "next-song":
+            return NextSong(results)
+
+        if asm[0]["key"] == "all-matches":
             return Playlist(results, "", None)
 
-        if asm[0]["key"] == "shuffle":
+        if asm[0]["key"] == "shuffled-playlists":
             playlists = self.get_playlsits(results)
             playlists.sort(key=lambda x: x.score, reverse=True)
             for playlist in playlists:
@@ -246,9 +253,10 @@ if __name__ == "__main__":
     lexer  = Lexer()
     parser = Parser()
     query = Query("data/db.json")
-
-    string = "add: title: ironmouse"
+    string = "add: artist: ironmouse and title: left right"
     tokens = lexer.lex(string)
     ast = parser.parse(tokens)
     results = query.query(ast)
+    print([i.path for i in results])
+
 

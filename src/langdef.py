@@ -25,18 +25,22 @@ class token_types(Enum):
 type_keywords = {
         "artist": "artist",
         "title": "title",
+        "date": "date",
+        "genre": "genre",
+        "duration": "duration",
+
         "playlists": "playlists",
         "playlist": "playlists",
         "album": "playlists",
         "albums": "playlists",
-        "date": "date",
-        "genre": "genre",
-        "duration": "duration",
+        "shuffle": "shuffled-playlists",
+
         "songs": "songs",
         "song": "songs",
-        "all": "all",
-        "shuffle": "shuffle",
-        "add": "add",
+
+        "add": "add-to-end",
+        "next": "next-song",
+        "all": "all-matches",
         }
 
 operator_keywords = {
