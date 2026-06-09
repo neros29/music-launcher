@@ -38,8 +38,8 @@ type_keywords = {
         "songs": "songs",
         "song": "songs",
 
-        "add": "add-to-end",
-        "next": "next-song",
+        "add": "append",
+        "next": "insert-next",
         "all": "all-matches",
         }
 

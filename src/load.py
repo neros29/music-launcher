@@ -47,7 +47,7 @@ class Load:
                 else:
                     metadata['title']  = None
                 if 'artist' in audio:
-                    metadata['artist'] = audio['artist'][0]
+                    metadata['artist'] = [i.strip() for i in audio['artist'][0].split(",")]
                 else:
                     metadata['artist']  = None
                 if 'album' in audio:

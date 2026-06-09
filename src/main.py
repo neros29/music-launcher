@@ -1,15 +1,15 @@
-import os
+from dbQuery import Playable, Query, Playlist, Song
+from langdef import type_keywords, operator_keywords
+from playBackController import PlayBackController
+from lexer import Lexer, token_types
+from threading import Thread, Lock
 from typing import List, Optional
 from inputWidget import Token
-from langdef import type_keywords, operator_keywords
-from dbQuery import Append, NextSong, Query, Playlist, Song
-from playBackController import PlayBackController
-from threading import Thread, Lock
 from parser import Parser
-from lexer import Lexer, token_types
+from ui import Ui
 import logging
 import time
-from ui import Ui
+import os
 
 class Main:
     def __init__(self) -> None:
@@ -37,13 +37,11 @@ class Main:
         self.replace: str = ""
 
         self.old_tokens = []
-        self.options = []
+        self.options = None
         self.old_options = []
         self.old_list_text = []
-        self.songs = []
 
-        self.append = False
-        self.next_song = False
+        self.play_type = "song"
         self.curser_index = 0
         self.old_curser_index = 0
         self.selected = 0
@@ -71,7 +69,8 @@ class Main:
             self.curser_index = len(self.text)
 
     def _move_down(self):
-        self.selected = min(len(self.songs) -1, self.selected + 1)
+        if self.options is not None:
+            self.selected = min(len(self.options.playable) -1, self.selected + 1)
 
     def _move_up(self):
         self.selected = max(0, self.selected - 1)
@@ -80,9 +79,9 @@ class Main:
         if self.text == "/exit":
             self.running = False
             return 
-        if len(self.songs) > 0:
-            index = max(min(len(self.songs)-1, self.selected), 0)
-            songs = self.songs[index]
+        if self.options is not None and len(self.options.playable) > 0:
+            index = max(min(len(self.options.playable)-1, self.selected), 0)
+            songs = self.options.get_playable(index)
             self.play(songs)
             self.running = False
 
@@ -110,56 +109,34 @@ class Main:
     def draw_list(self):
         width = self.ui.song_list_size[0]
         text = []
-        results = self.options
+        if self.options is None:
+            return ""
+        results: Playable = self.options
         if self.old_options == results:
             return self.old_list_text
-        if results is None:
-            text.append(f"Invalid query")
         else:
-            if type(results) == Playlist:
-                self.songs = [i.path for i in results]
-                text.append(f"playing custom playlist from query")
-
-            if type(results) == Append:
-                self.append = True
-
-            if type(results) == NextSong:
-                self.next_song = True
-            index = 0
-            songs = []
-            max_name_len = (width // 2) - 5
-            max_artist_len = (width // 3) - 5
+            self.play_type = results.get_playable_type()
+            first_row = (width // 2) - 5
+            secound_row = ((width // 3) - 5)
             for result in results:
                 if type(result) == Playlist:
-                    name = f"playlist: {result.name}"
-                    if len(name) > max_name_len:
-                        name = name[: max_name_len ] + "..."
-                    artist = f"artist: {result.artist}"
-                    if len(artist) > max_artist_len:
-                        artist = artist[:max_artist_len] + "..."
+                    first = f"playlist: {result.name}"
+                    secound = f"artist: {result.artist}"
+                    third = f"track count: {len(result.songs):03d}"
+                else:
+                    first = f"song: {result.get('title')}"
+                    secound = f"artist: {result.get('artist')}"
+                    third = f"duration: {(result.get('duration') / 60):.2f}"
 
-                    tracks = f"track count: {len(result.songs):03d}"
-                    first_space = (width // 2) - len(name)
-                    secound_space = (width - (first_space + len(name) + len(artist) + len(tracks)))
-                    playlist_text = name + " "* first_space + artist + " " * secound_space + tracks
-                    text.append(playlist_text)
-                    songs.append([i.path for i in result])
-                    index += 1
-                elif type(result) == Song:
-                    name = f"song: {result.get('title')}"
-                    if len(name) > max_name_len:
-                        name = name[: max_name_len] + "..."
-                    artist = f"artist: {result.get('artist')}"
-                    if len(artist) > max_artist_len:
-                        artist = artist[:max_artist_len] + "..."
-                    duration = f"duration: {(result.get('duration') / 60):.2f}"
-                    first_space = (width // 2) - len(name)
-                    secound_space = (width - (first_space + len(name) + len(artist) + len(duration)))
-                    playlist_text = name + " "* first_space + artist + " " * secound_space + duration
-                    text.append(playlist_text)
-                    songs.append([result.path])
-                    index += 1
-            self.songs = songs
+                if len(first) > first_row:
+                    first = first[:first_row] + "..."
+                if len(secound) > secound_row:
+                    secound = secound[:secound_row] + "..."
+                first_space = first_row - len(first)
+                secound_space = first_row - len(secound)
+                line = f"{first:<{first_row}}{secound:<{first_row - len(third)}}{third}"
+                text.append(line)
+
         self.old_options = self.options
         self.old_list_text = text
         return text
@@ -167,10 +144,10 @@ class Main:
     def play(self, songs):
         with self.pbc_lock:
             assert self.pbc is not None, "to fix lsp"
-            if self.append:
+            if self.play_type == "append":
                 self.append = False
                 self.pbc.add_to_playlists(songs)
-            elif self.next_song:
+            elif self.play_type == "insert-next":
                 self.next_song = False
                 self.pbc.add_next_song(songs)
             else:

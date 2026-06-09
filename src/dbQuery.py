@@ -12,18 +12,37 @@ class Song:
         self.query = query
         self.path = song_path
         self.score_list = score_list
-
         self.score = 0
+
         for score in self.score_list:
             self.score += score[1]
     def get(self, key: str):
         return self.root.data[self.path][key]
 
-class Append(List):
-    pass
+class Playable:
+    def __init__(self, playable: List, playable_type: str) -> None:
+        self.playable_type: str = playable_type
+        self.playable: List = playable
+        self.type: str = "playlist" if len(playable) > 0 and isinstance(playable[0], Playlist) else "song"
 
-class NextSong(List):
-    pass
+    def sort(self):
+        if self.type == "playlist":
+            self.playable.sort(key=lambda x: (x.score, len(x.songs)), reverse=True)
+        else:
+            self.playable.sort(key=lambda x: x.score, reverse=True)
+
+    def get_playable(self, index: int):
+        if self.type == "playlist":
+            return [i.path for i in self.playable[index]]
+        if self.type == "song":
+            return [self.playable[index].path]
+
+    def get_playable_type(self):
+        return self.playable_type
+
+    def __iter__(self):
+        for i in self.playable:
+            yield i
 
 class Playlist:
     def __init__(self, songs: List[Song], playlist_name: str, root_song: Optional[Song]) -> None:
@@ -51,7 +70,7 @@ class Playlist:
 
         for song in self.songs:
             artists = set()
-            for a in song.get("artist").split(","):
+            for a in song.get("artist"):
                 a = a.strip().lower()
                 if a not in artists:
                     artists.add(a)
@@ -170,7 +189,7 @@ class Query:
                 value = song_data.get(query["key"])
                 if value is None:
                     return (False, [])
-                if isinstance(value, dict):
+                if isinstance(value, (dict, list)):
                     query_result = 0.0
                     for val in value:
                         query_result = self.funcs[query["func"]](val.lower().strip(), query["value"])
@@ -224,30 +243,29 @@ class Query:
     def query(self, ast: Pair):
         asm = self._compile_ast(ast)
         results = self._query_db(asm)
-        results.sort(key=lambda x: x.score, reverse=True)
 
         if asm[0]["key"] == "songs":
-            return results
+            return Playable(results, "songs")
 
-        if asm[0]["key"] == "add-to-end":
-            return Append(results)
+        if asm[0]["key"] == "append":
+            return Playable(results, "append")
 
-        if asm[0]["key"] == "next-song":
-            return NextSong(results)
+        if asm[0]["key"] == "insert-next":
+            return Playable(results, "insert-next")
 
         if asm[0]["key"] == "all-matches":
-            return Playlist(results, "", None)
+            return Playable([Playlist(results, "", None)], "all-matches")
 
         if asm[0]["key"] == "shuffled-playlists":
             playlists = self.get_playlsits(results)
             playlists.sort(key=lambda x: x.score, reverse=True)
             for playlist in playlists:
                 shuffle(playlist.songs)
-            return playlists
+            return Playable(playlists, "shuffled-playlists")
 
         playlists = self.get_playlsits(results)
         playlists.sort(key=lambda x: x.score, reverse=True)
-        return playlists
+        return Playable(playlists, "playlists")
 
 if __name__ == "__main__":
     lexer  = Lexer()
