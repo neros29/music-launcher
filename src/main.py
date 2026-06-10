@@ -1,16 +1,18 @@
-from dbQuery import Playable, Query, Playlist, Song
 from langdef import type_keywords, operator_keywords
 from playBackController import PlayBackController
+from dbQuery import Playable, Query, Playlist
 from lexer import Lexer, token_types
 from threading import Thread, Lock
 from typing import List, Optional
 from inputWidget import Token
 from parser import Parser
+from pathlib import Path
 from ui import Ui
 import logging
-import time
-import os
 import wcwidth
+import time
+import json
+import os
 
 class Main:
     def __init__(self) -> None:
@@ -22,7 +24,14 @@ class Main:
         self.db_path = "/home/neros/Documents/projects/music/data/db.json"
         self.socket_file = "/tmp/mpv"
         self._mpv_cmd = f"mpv --input-ipc-server={self.socket_file} --idle=yes --player-operation-mode=pseudo-gui"
-        self._playback_cmd= f'hyprctl dispatch \'hl.dsp.exec_cmd("{self._mpv_cmd}", {{ workspace = "8 silent" }})\''
+        self._music_workspace = 8
+        self._playback_cmd= f'hyprctl dispatch \'hl.dsp.exec_cmd("{self._mpv_cmd}", {{ workspace = "{self._music_workspace} silent" }})\''
+        self._theme_path = Path("~/.alice/theme/current/music-launcher.json").expanduser()
+
+        self.bg = [0x19, 0x11, 0x14]
+        self.fg = [0xee, 0xdf, 0xe3]
+        self.surface_bg = [0x59, 0x40, 0x4a]
+        self.fg, self.bg, self.surface_bg = self._get_theme()
 
         self.pbc_lock = Lock()
         self.pbc: Optional[PlayBackController] = None
@@ -31,8 +40,7 @@ class Main:
         self.query: Query = Query(self.db_path)
         self.parser = Parser()
         self.lexer = Lexer()
-        self.ui = Ui(self.log)
-
+        self.ui = Ui(self.fg, self.bg, self.surface_bg)
         self.text: str = ""
         self.old_text: str = ""
         self.replace: str = ""
@@ -57,6 +65,15 @@ class Main:
                 "Up": self._move_up,
                 "Tab": self._replace,
             }
+
+    def _get_theme(self):
+        data = self._theme_path.read_text()
+        data = json.loads(data)
+        for color in data:
+            hex_color = data[color].replace("#", "").strip()
+            data[color] = [int(hex_color[0:2], 16), int(hex_color[2:4], 16), int(hex_color[4:6], 16)]
+        return data["foreground"], data["background"], data["surface_bg"]
+
 
     def _start_pbc(self):
         with self.pbc_lock:
@@ -120,16 +137,20 @@ class Main:
             first_row = (width // 2) - 5
             secound_row = (width // 3) - 5
             third_row = width - (first_row + secound_row)
+            header = True
             for result in results:
                 if type(result) == Playlist:
-                    first = f"playlist: {result.name}"
-                    secound = f"artist: {result.artist}"
-                    third = f"track count: {len(result.songs):03d}"
+                    if header:
+                        line = f"{'Playlist Name':<{first_row}}{'Predominant Artist':<{secound_row}}{'Track Count':>{third_row}}"
+                    first = f"{result.name}"
+                    secound = f"{result.artist}"
+                    third = f"{len(result.songs):03d}"
                 else:
-                    first = f"song: {result.get('title')}"
-                    secound = f"artist: {result.get('artist')[0]}"
-                    third = f"duration: {(result.get('duration') / 60):.2f}"
-
+                    if header:
+                        line = f"{'Song Name':<{first_row}}{'Artist':<{secound_row}}{'Track Duration':>{third_row}}"
+                    first = f"{result.get('title')}"
+                    secound = f"{result.get('artist')[0]}"
+                    third = f"{(result.get('duration') / 60):.2f}"
                 first_wc_err = (wcwidth.wcswidth(first) - len(first))
                 secound_wc_err = (wcwidth.wcswidth(secound) - len(secound))
                 if wcwidth.wcswidth(first) + 1 > first_row:
@@ -140,6 +161,9 @@ class Main:
                     cut = (secound_row - 4) - secound_wc_err
                     secound = secound[:cut] + "..."
                     secound += (secound_row - wcwidth.wcswidth(secound)) * " "
+                if header:
+                    text.append(line)
+                    header = False
                 line = f"{first:<{first_row - first_wc_err}}{secound:<{secound_row - secound_wc_err}}{third:>{third_row}}"
                 text.append(line)
 
@@ -196,7 +220,7 @@ class Main:
         for token in self.lexer.lex(self.text):
             if not token.virtual:
                 for ch in token.value:
-                    tokens.append(Token(colors[token.token_type], self.ui.bg, ch))
+                    tokens.append(Token(colors[token.token_type], self.bg, ch))
         
         last_token = self.lexer.split_string(self.text)
         key_word = ""
@@ -215,13 +239,13 @@ class Main:
             elif key_word in operator_keywords:
                 self.replace = f"{key_word} "
             for ch in self.replace[len(last_token[-2].value):]:
-                tokens.append(Token([0x91, 0x88, 0xa8], self.ui.bg, ch))
+                tokens.append(Token([0x91, 0x88, 0xa8], self.bg, ch))
         else:
             self.replace = ""
         ch = " "
         if 0 <= self.curser_index < len(self.text) + len(self.replace):
             ch = tokens.pop(self.curser_index).character
-        tokens.insert(self.curser_index, Token(self.ui.bg, self.ui.fg, ch, "cursor"))
+        tokens.insert(self.curser_index, Token(self.bg, self.fg, ch, "cursor"))
         self.old_tokens = tokens
         self.old_curser_index = self.curser_index
         return tokens
