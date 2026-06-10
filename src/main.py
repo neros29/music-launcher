@@ -10,6 +10,7 @@ from ui import Ui
 import logging
 import time
 import os
+import wcwidth
 
 class Main:
     def __init__(self) -> None:
@@ -117,7 +118,8 @@ class Main:
         else:
             self.play_type = results.get_playable_type()
             first_row = (width // 2) - 5
-            secound_row = ((width // 3) - 5)
+            secound_row = (width // 3) - 5
+            third_row = width - (first_row + secound_row)
             for result in results:
                 if type(result) == Playlist:
                     first = f"playlist: {result.name}"
@@ -125,16 +127,20 @@ class Main:
                     third = f"track count: {len(result.songs):03d}"
                 else:
                     first = f"song: {result.get('title')}"
-                    secound = f"artist: {result.get('artist')}"
+                    secound = f"artist: {result.get('artist')[0]}"
                     third = f"duration: {(result.get('duration') / 60):.2f}"
 
-                if len(first) > first_row:
-                    first = first[:first_row] + "..."
-                if len(secound) > secound_row:
-                    secound = secound[:secound_row] + "..."
-                first_space = first_row - len(first)
-                secound_space = first_row - len(secound)
-                line = f"{first:<{first_row}}{secound:<{first_row - len(third)}}{third}"
+                first_wc_err = (wcwidth.wcswidth(first) - len(first))
+                secound_wc_err = (wcwidth.wcswidth(secound) - len(secound))
+                if wcwidth.wcswidth(first) + 1 > first_row:
+                    cut = (first_row - 4) - first_wc_err
+                    first = first[: cut] + "..."
+                    first +=(first_row - wcwidth.wcswidth(first)) * " "
+                if wcwidth.wcswidth(secound) + 1 > secound_row:
+                    cut = (secound_row - 4) - secound_wc_err
+                    secound = secound[:cut] + "..."
+                    secound += (secound_row - wcwidth.wcswidth(secound)) * " "
+                line = f"{first:<{first_row - first_wc_err}}{secound:<{secound_row - secound_wc_err}}{third:>{third_row}}"
                 text.append(line)
 
         self.old_options = self.options

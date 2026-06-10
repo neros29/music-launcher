@@ -16,6 +16,7 @@ class Song:
 
         for score in self.score_list:
             self.score += score[1]
+
     def get(self, key: str):
         return self.root.data[self.path][key]
 
@@ -24,6 +25,7 @@ class Playable:
         self.playable_type: str = playable_type
         self.playable: List = playable
         self.type: str = "playlist" if len(playable) > 0 and isinstance(playable[0], Playlist) else "song"
+        self.sort()
 
     def sort(self):
         if self.type == "playlist":
@@ -64,28 +66,27 @@ class Playlist:
         return score / max(len(self.songs), 1)
 
     def _get_artist(self):
+        unformated = {}
         results = {}
         first_seen_order = {}
         order_counter = 0
-
         for song in self.songs:
             artists = set()
             for a in song.get("artist"):
+                none_formated = a
                 a = a.strip().lower()
                 if a not in artists:
                     artists.add(a)
                     if a not in first_seen_order:
                         first_seen_order[a] = order_counter
                         order_counter += 1
+                    unformated[a] = none_formated
                     results[a] = results.get(a, 0) + 1
-
         most_appearances = max(results.values(), default=0)
         top_artists = [a for a, c in results.items() if c == most_appearances]
-        
-        # Tiebreak by who appeared first in the metadata
         top_artists.sort(key=lambda a: first_seen_order[a])
         if top_artists:
-            return top_artists[0]
+            return unformated[top_artists[0]]
         return ""
 
     def __iter__(self):
@@ -131,14 +132,14 @@ class Query:
         if cached:
             return cached
         min_score = 60
-        p_weight = 0.70
+        p_weight = 0.60
         s_weight = 1 - p_weight
-        p_ratio = fuzz.partial_token_sort_ratio(value, query)
+        p_ratio = fuzz.partial_token_set_ratio(value, query)
         min_p_ratio = (min_score - (100 * s_weight)) / p_weight
         if p_ratio < min_p_ratio:
             self._fuzz_cache[(value, query)] = 0
             return 0
-        s_ratio = fuzz.token_sort_ratio(value, query)
+        s_ratio = fuzz.token_set_ratio(value, query)
         score = ((p_ratio * p_weight) + (s_ratio * s_weight))
         result = max((score - min_score) / (100 - min_score), 0)
         self._fuzz_cache[(value, query)] = result
@@ -192,9 +193,9 @@ class Query:
                 if isinstance(value, (dict, list)):
                     query_result = 0.0
                     for val in value:
-                        query_result = self.funcs[query["func"]](val.lower().strip(), query["value"])
-                        if query_result > 0:
-                            break
+                        tmp = self.funcs[query["func"]](val.lower().strip(), query["value"])
+                        if tmp > query_result:
+                            query_result = tmp
                 else:
                     query_result = self.funcs[query["func"]](value.lower().strip(), query["value"])
                 if query_result > 0:
@@ -236,7 +237,8 @@ class Query:
                     playlists_names[playlist]["songs"].append(Song(song, self._score_song(song, playlists_names[playlist]["root_song"].query)[1], self, playlists_names[playlist]["root_song"].query))
         results = []
         for playlist in playlists_names:
-            results.append(Playlist(playlists_names[playlist]["songs"], playlist, playlists_names[playlist]["root_song"]))
+            if len(playlists_names[playlist]["songs"]) > 1:
+                results.append(Playlist(playlists_names[playlist]["songs"], playlist, playlists_names[playlist]["root_song"]))
         return results
 
 
@@ -258,23 +260,29 @@ class Query:
 
         if asm[0]["key"] == "shuffled-playlists":
             playlists = self.get_playlsits(results)
-            playlists.sort(key=lambda x: x.score, reverse=True)
             for playlist in playlists:
                 shuffle(playlist.songs)
             return Playable(playlists, "shuffled-playlists")
 
         playlists = self.get_playlsits(results)
-        playlists.sort(key=lambda x: x.score, reverse=True)
         return Playable(playlists, "playlists")
 
 if __name__ == "__main__":
+    def print_playable(results):
+        for i in results:
+            if results.type == "playlist":
+                print(f"{i.name:<150}{i.score}")
+            else:
+                print(f"{i.get('title'):<150}{i.score}")
     lexer  = Lexer()
     parser = Parser()
     query = Query("data/db.json")
     string = "add: artist: ironmouse and title: left right"
+    string = "album: album: liked music"
     tokens = lexer.lex(string)
     ast = parser.parse(tokens)
     results = query.query(ast)
-    print([i.path for i in results])
 
+    print(string)
+    print_playable(results)
 
