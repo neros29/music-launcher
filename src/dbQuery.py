@@ -255,6 +255,10 @@ class Query:
         if asm[0]["key"] == "insert-next":
             return Playable(results, "insert-next")
 
+        if asm[0]["key"] == "append-playlist":
+            playlists = self.get_playlsits(results)
+            return Playable(playlists, "append")
+
         if asm[0]["key"] == "all-matches":
             return Playable([Playlist(results, "", None)], "all-matches")
 

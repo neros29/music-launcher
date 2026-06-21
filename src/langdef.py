@@ -39,6 +39,8 @@ type_keywords = {
         "song": "songs",
 
         "add": "append",
+        "add-playlist":  "append-playlist",
+        "add-list":  "append-playlist",
         "next": "insert-next",
         "all": "all-matches",
         }
