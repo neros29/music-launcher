@@ -30,18 +30,16 @@ type_keywords = {
         "duration": "duration",
 
         "playlists": "playlists",
-        "playlist": "playlists",
-        "album": "playlists",
         "albums": "playlists",
         "shuffle": "shuffled-playlists",
 
         "songs": "songs",
-        "song": "songs",
 
         "add": "append",
         "add-playlist":  "append-playlist",
-        "add-list":  "append-playlist",
+
         "next": "insert-next",
+
         "all": "all-matches",
         }
 
