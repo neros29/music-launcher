@@ -1,7 +1,7 @@
 from typing import List
 
 from sys import path
-path.append("include/tui/build/")
+path.append("include/tuilib/build/")
 import tui
 
 class Character:
