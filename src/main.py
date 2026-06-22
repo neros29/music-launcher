@@ -54,7 +54,7 @@ class Main:
         self.curser_index = 0
         self.old_curser_index = 0
         self.selected = 0
-        self.frame_rate = 60
+        self.frame_rate = 30
 
         self.special_keys = {
                 "Backspace": self._backspace,
@@ -251,9 +251,6 @@ class Main:
         return tokens
 
     def run(self):
-        frame_max = 0
-        max_text = ""
-        to_print = ""
         frame_time = 1 / self.frame_rate
         last_frame = time.perf_counter()
         os.system("clear")
@@ -263,21 +260,16 @@ class Main:
                 elements = self.draw_list()
                 keys = self.ui.update(text, elements, self.selected)
                 self.events(keys)
+
                 now = time.perf_counter()
                 elapsed = now - last_frame
                 if elapsed < frame_time:
                     time.sleep(frame_time - elapsed)
                 last_frame = time.perf_counter()
+
             except KeyboardInterrupt:
                 break
-            # except Exception as e:
-            #     to_print += f"Error {e} occured\n"
-            #     to_print += f"Text dump is '{self.text}'\n"
-            #     break
         os.system("clear")
-        print(to_print, end="")
-        print(frame_max)
-        print(max_text)
 
 if __name__ == "__main__":
     main = Main()
