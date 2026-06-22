@@ -1,6 +1,6 @@
 from pathlib import Path
 from typing import List, Optional
-from thefuzz import fuzz
+from rapidfuzz import fuzz
 from parser import Pair, Parser
 from random import shuffle
 from lexer import Lexer
