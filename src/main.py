@@ -28,9 +28,6 @@ class Main:
         self._playback_cmd= f'hyprctl dispatch \'hl.dsp.exec_cmd("{self._mpv_cmd}", {{ workspace = "{self._music_workspace} silent" }})\''
         self._theme_path = Path("~/.alice/theme/current/music-launcher.json").expanduser()
 
-        self.bg = [0x19, 0x11, 0x14]
-        self.fg = [0xee, 0xdf, 0xe3]
-        self.surface_bg = [0x59, 0x40, 0x4a]
         self.fg, self.bg, self.surface_bg = self._get_theme()
 
         self.pbc_lock = Lock()
