@@ -15,7 +15,10 @@ class Load:
         self._load_file()
         self.work_queue = Queue() 
         self.return_queue = Queue()
-        for _ in range(8):
+        self.paths = set()
+        self.deleted = self.data["cache"]["duplicates"]
+        self.thread_count = 8
+        for _ in range(self.thread_count):
             t = Thread(target=self.worker, daemon=True)
             t.start()
 
@@ -27,6 +30,9 @@ class Load:
             self.data = json.load(f)
             if self.data.get("music") is None:
                 self.data["music"] = {}
+            if self.data.get("cache") is None:
+                self.data["cache"] = {}
+                self.data["cache"]["duplicates"] = {}
 
     def _save_data(self):
         with open(self.dbPath, "w") as f:
@@ -83,9 +89,10 @@ class Load:
         music = self.data["music"]
         for directory in os.walk(self.musicPath):
             for file in directory[2]:
-                path = os.path.join(directory[0], file)   # Safer path construction
+                path = os.path.join(directory[0], file)
                 if file.lower().endswith(self.musicExtentions):
-                    if music.get(path) is None:
+                    self.paths.add(path)
+                    if music.get(path) is None and path not in self.deleted:
                         procesed += 1
                         self.work_queue.put(path)
         while procesed > receved:
@@ -116,17 +123,27 @@ class Load:
     def get_m3u(self):
         procesed = 0
         music = self.data["music"]
+        cache = self.data["cache"]
+        if not cache.get("m3u"):
+            cache["m3u"] = {}
         for directory in os.walk(self.musicPath):
             for file in directory[2]:
-                path = os.path.join(directory[0], file)   # Safer path construction
+                path = os.path.join(directory[0], file)
                 if file.lower().endswith((".m3u")):
+                    if path in cache["m3u"]:
+                        continue
                     with open(path, "r") as f:
                         data = f.read()
                         playlist, name = self.parse_m3u(data, path)
                         procesed += 1
                         for index, song in enumerate(playlist):
+                            orig_path = cache["duplicates"].get(song)
                             if music.get(song):
                                 music[song]["playlists"][name] = index
+                                cache["m3u"][path] = True
+                            elif orig_path:
+                                self.data[orig_path]["playlists"][name] = index
+                                cache["m3u"][path] = True
                             else:
                                 print(f"faild to find {song} form in {path}")
         print(f"proccesed {procesed} m3u files")
@@ -135,7 +152,8 @@ class Load:
         songs = {}
         dups = []
         for song in self.data["music"]:
-            if not os.path.isfile(song):
+            if not song in self.paths:
+                print(f"song {song}")
                 dups.append(song)
                 continue
             song_data = self.data["music"][song]
@@ -147,13 +165,13 @@ class Load:
         for song in dups:
             song_data = self.data["music"][song]
             song_hash = f"{song_data['title']},{song_data['artist']},{song_data['date']}" 
-            if song_hash in songs:
-                orig = songs[song_hash]
-                orig_data = self.data["music"][orig]["playlists"]
-                for playlist in song_data["playlists"]:
-                    if playlist not in orig_data or orig_data[playlist] == None:
-                        orig_data[playlist] = song_data["playlists"][playlist]
-
+            # if song_hash in songs:
+            orig = songs[song_hash]
+            orig_data = self.data["music"][orig]["playlists"]
+            for playlist in song_data["playlists"]:
+                if playlist not in orig_data or orig_data[playlist] == None:
+                    orig_data[playlist] = song_data["playlists"][playlist]
+            self.data["cache"]["duplicates"][song] = orig
             del self.data["music"][song]
         print(f"deleted {len(dups)}")
     
@@ -166,4 +184,3 @@ class Load:
 if __name__ == "__main__":
     load = Load("/home/neros/Music/", "/home/neros/Documents/projects/music/data/db.json")
     load.fill_db()
-    #Sabrina Carpenter - House Tour (Official Lyric Video).mp3
