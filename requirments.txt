@@ -1,5 +1,2 @@
-mutagen
-pybind11-stubgen 
 rapidfuzz
-thefuzz
 wcwidth
