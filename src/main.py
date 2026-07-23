@@ -55,6 +55,7 @@ class Main:
 
         self.special_keys = {
                 "Backspace": self._backspace,
+                "Shift + Enter": self._shift_enter,
                 "Left": self._move_left,
                 "Right": self._move_right,
                 "Enter": self._handle_enter,
@@ -62,6 +63,8 @@ class Main:
                 "Up": self._move_up,
                 "Tab": self._replace,
             }
+    def _shift_enter(self):
+        print("shift + enter pressed", file=self.log)
 
     def _get_theme(self):
         data = self._theme_path.read_text()
@@ -271,4 +274,5 @@ class Main:
 if __name__ == "__main__":
     main = Main()
     main.run()
+    print("\x1b[?25h")
 

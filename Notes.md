@@ -145,3 +145,14 @@ I should make the parser return defualt for defualt inteasd of having it guess f
     , 'op': None}
 ]
 
+
+### Next Step
+# Algorithem to find good playlists picks.
+So far my main problem with the current design is that it's some times hard to remeber what i have. When i don't have a song or album in mind it can be hard to remeber what songs i have that are good to listen to. I think one solution for this is adding a little algorithem to show a list of playlists when i first open the app. There can be stuff like  what i have recently been listenting to but also songs i listed to alot in the past but havent herd much recently. Basicly i build a rating system for every playlists and when there is nothing typed in the bar it shows these playlists in order of songs.
+
+# Better quering.
+I want to make it so that when i try to find something with in playlists it puts songs that match at the end if they don't have a playlists but match.
+
+# pick multiple songs.
+I would like to add a feater were i can add multiple playlists by simply using shift + enter
+

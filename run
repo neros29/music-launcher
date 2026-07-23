@@ -1,2 +1,2 @@
 cd ~/Documents/projects/music/
-exec setsid uwsm-app -- xdg-terminal-exec --app-id=com.alice.Music -e myenv/bin/python3 src/main.py "$@"
+exec setsid uwsm-app -- kitty -o tab_bar_style=hidden --app-id=com.alice.Music -e myenv/bin/python3 src/main.py "$@"
