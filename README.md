@@ -6,6 +6,10 @@ This music launcher sets it's self apart from the norm, in a few ways. The first
 This app has very few dependence's however dose have some. This app mpv to be installed, and my custom c++ [tuilib](https://github.com/neros29/tuilib) to be able to run. Other then that this project requires the packages rapidfuzz, wcwidth, and mutagen. 
 # Compiling
 To uses this project you must first be on linux with a terminal that accepts full color, you need to have terminfo, as well as utf8proc installed on your system, then you just run the make file. This will clone my tuilib repo and compile it. If you want to try this may work on mac, or with none full color terminals however i have not tested that so I choose to assume it doesn't.
-The make command should just be `make` as it's a very simple make file.
+- `make debug` compile the tuilib inside the repo
+- `make install` install the app on your device
+- `make uninstall` uninstall the app on your device
+# Configs 
+The app will auto genrate a config file in `~/.config/music-launcher/` look at this file to configure the app.
 # Show case
 ![image](images/img1.png)
