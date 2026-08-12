@@ -4,6 +4,7 @@ from rapidfuzz import fuzz
 from parser import Pair, Parser
 from random import shuffle
 from lexer import Lexer
+import time
 import json
 
 class Song:
@@ -98,6 +99,8 @@ class Query:
     def __init__(self, db_path) -> None:
         self.db_path: Path = db_path if isinstance(db_path, Path) else Path(db_path)
         self.data = self._load_file()
+        self.generator = None
+        self.stop_time = None
         self.funcs = {
                 "fuzz": self._fuzz,
                 "re": self._glob,
@@ -208,11 +211,16 @@ class Query:
 
     def _query_db(self, querys):
         results = []
+        total = 0
         for song in self.data:
+            if total % 100 == 0:
+                if time.perf_counter() >= self.stop_time:
+                    yield (results, False)
             result = self._score_song(song, querys)
             if result[0]:
                 results.append(Song(song, result[1], self, querys))
-        return results
+            total += 1
+        yield (results, True)
 
     def _compile_ast(self, ast: Pair, i_op = None):
         if ast.data_type != "scope":
@@ -242,34 +250,36 @@ class Query:
         return results
 
 
-    def query(self, ast: Pair):
+    def query(self, ast: Pair, stop_time, restart = False):
         asm = self._compile_ast(ast)
-        results = self._query_db(asm)
-
+        self.stop_time = stop_time
+        if self.generator is None or restart:
+            self.generator = self._query_db(asm)
+        results, done = next(self.generator)
         if asm[0]["key"] == "songs":
-            return Playable(results, "songs")
+            return (Playable(results, "songs"), done)
 
         if asm[0]["key"] == "append":
-            return Playable(results, "append")
+            return (Playable(results, "append"), done)
 
         if asm[0]["key"] == "insert-next":
-            return Playable(results, "insert-next")
+            return (Playable(results, "insert-next"), done)
 
         if asm[0]["key"] == "append-playlist":
             playlists = self.get_playlsits(results)
-            return Playable(playlists, "append")
+            return (Playable(playlists, "append"), done)
 
         if asm[0]["key"] == "all-matches":
-            return Playable([Playlist(results, "", None)], "all-matches")
+            return (Playable([Playlist(results, "", None)], "all-matches"), done)
 
         if asm[0]["key"] == "shuffled-playlists":
             playlists = self.get_playlsits(results)
             for playlist in playlists:
                 shuffle(playlist.songs)
-            return Playable(playlists, "shuffled-playlists")
+            return (Playable(playlists, "shuffled-playlists"), done)
 
         playlists = self.get_playlsits(results)
-        return Playable(playlists, "playlists")
+        return (Playable(playlists, "playlists"), done)
 
 if __name__ == "__main__":
     def print_playable(results):
@@ -280,13 +290,22 @@ if __name__ == "__main__":
                 print(f"{i.get('title'):<150}{i.score}")
     lexer  = Lexer()
     parser = Parser()
-    query = Query("data/db.json")
+    query = Query("data/tmp_db.json")
     string = "add: artist: ironmouse and title: left right"
-    string = "album: album: liked music"
+    # string = "album: album: liked music"
     tokens = lexer.lex(string)
     ast = parser.parse(tokens)
-    results = query.query(ast)
-
-    print(string)
+    start = time.time()
+    running = True
+    loops = 0
+    while running:
+        results, done = query.query(ast, time.perf_counter() + 0.01) 
+        if done:
+            running = False
+        loops += 1;
+    print(f"Total loops took {loops}")
+    print(f"Took {time.time() - start} secounds to run")
+    print(f"Total data {len(query.data)}")
+    print(f"query string '{string}'")
     print_playable(results)
 

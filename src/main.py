@@ -19,10 +19,10 @@ class Main:
     def __init__(self, config: Config) -> None:
         self.config = config
         logging.getLogger('thefuzz').setLevel(logging.ERROR)
-        self.log = open("logs/log", "a")
         self.running = True
 
         self.db_path = config.db_path()
+        # self.db_path = "data/tmp_db.json"
         self.socket_file = config.config["socket_file"]
         self._playback_cmd = config.config["player_cmd"]
         self.syntax_colors = {}
@@ -42,7 +42,7 @@ class Main:
 
         self.old_tokens = []
         self.options = None
-        self.old_options = []
+        self.old_options = None
         self.old_list_text = []
 
         self.play_type = "song"
@@ -50,6 +50,9 @@ class Main:
         self.old_curser_index = 0
         self.selected = 0
         self.frame_rate = 30
+        self.new_key = True
+        self.finished = False
+        self.saved_ast = None
 
         self.special_keys = {
                 "Backspace": self._backspace,
@@ -91,6 +94,8 @@ class Main:
     def _move_down(self):
         if self.options is not None:
             self.selected = min(len(self.options.playable) -1, self.selected + 1)
+        elif self.old_options is not None:
+            self.selected = min(len(self.old_options.playable) -1, self.selected + 1)
 
     def _move_up(self):
         self.selected = max(0, self.selected - 1)
@@ -104,6 +109,13 @@ class Main:
             songs = self.options.get_playable(index)
             self.play(songs)
             self.running = False
+        elif self.old_options is not None and len(self.old_options.playable) > 0:
+            index = max(min(len(self.old_options.playable)-1, self.selected), 0)
+            songs = self.old_options.get_playable(index)
+            self.play(songs)
+            self.running = False
+
+
 
     def _move_left(self):
         self.curser_index = max(0, self.curser_index - 1)
@@ -116,22 +128,41 @@ class Main:
         first = self.text[:max(0, self.curser_index - 1)]
         self.text = first + secound
         self.curser_index = max(0, self.curser_index - 1)
-        self.get_options()
+        self.new_key = True
 
-    def get_options(self):
-        tokens = self.lexer.lex(self.text)
-        ast = self.parser.parse(tokens)
-        if ast is None:
-            self.options = None
+    def get_options(self, time_left):
+        if self.new_key:
+            self.finished = False
+            tokens = self.lexer.lex(self.text)
+            ast = self.parser.parse(tokens)
+            self.saved_ast = ast
+            if ast is None:
+                self.options = None
+                return
+            results, done = self.query.query(ast, time_left, restart=True)
+            self.new_key = False
+        elif self.finished:
             return
-        self.options = self.query.query(ast)
+        else:
+            results, done = self.query.query(self.saved_ast, time_left)
+        if done:
+            self.options = results
+            self.finished = True
+    def _sanitize_string(self, s: str):
+        import string
+        for i in string.whitespace:
+            s.replace(i, " ")
+        return s
 
     def draw_list(self):
         width = self.ui.song_list_size[0]
         text = []
-        if self.options is None:
+        if self.options is None and self.old_options is None:
             return ""
-        results: Playable = self.options
+        elif self.options is None:
+            results: Playable = self.old_options
+        else:
+            results: Playable = self.options
         if self.old_options == results:
             return self.old_list_text
         else:
@@ -144,14 +175,14 @@ class Main:
                 if type(result) == Playlist:
                     if header:
                         line = f"{'Playlist Name':<{first_row}}{'Predominant Artist':<{secound_row}}{'Track Count':>{third_row}}"
-                    first = f"{result.name}"
-                    secound = f"{result.artist}"
+                    first = f"{self._sanitize_string(result.name)}"
+                    secound = f"{self._sanitize_string(result.artist)}"
                     third = f"{len(result.songs):03d}"
                 else:
                     if header:
                         line = f"{'Song Name':<{first_row}}{'Artist':<{secound_row}}{'Track Duration':>{third_row}}"
-                    first = f"{result.get('title')}"
-                    secound = f"{result.get('artist')[0]}"
+                    first = f"{self._sanitize_string(result.get('title', 'None'))}"
+                    secound = f"{self._sanitize_string(result.get('artist', 'None')[0])}"
                     third = f"{(result.get('duration') / 60):.2f}"
                 first_wc_err = (wcwidth.wcswidth(first) - len(first))
                 secound_wc_err = (wcwidth.wcswidth(secound) - len(secound))
@@ -205,7 +236,7 @@ class Main:
                 self.special_keys[key]()
             else:
                 self._add_character(key)
-                self.get_options()
+                self.new_key = True
 
     def draw_text(self):
         if self.old_text == self.text and self.old_curser_index == self.curser_index: 
@@ -255,6 +286,12 @@ class Main:
                 keys = self.ui.update(text, elements, self.selected)
                 self.events(keys)
 
+                # give the remaining time to get_options
+                now = time.perf_counter()
+                elapsed = now - last_frame
+                if elapsed < frame_time:
+                    self.get_options(now + (frame_time - elapsed))
+                # sleep remaining amont if get_options ends early
                 now = time.perf_counter()
                 elapsed = now - last_frame
                 if elapsed < frame_time:
