@@ -8,7 +8,7 @@ import re
 
 class Load:
     def __init__(self, path, dbPath):
-        self.musicPath = path
+        self.musicPaths = path
         self.musicExtentions = (".mp3", ".m4a")
         self.dbPath = dbPath
         self.data = {}
@@ -87,14 +87,15 @@ class Load:
         procesed = 0
         receved = 0
         music = self.data["music"]
-        for directory in os.walk(self.musicPath):
-            for file in directory[2]:
-                path = os.path.join(directory[0], file)
-                if file.lower().endswith(self.musicExtentions):
-                    self.paths.add(path)
-                    if music.get(path) is None and path not in self.deleted:
-                        procesed += 1
-                        self.work_queue.put(path)
+        for musicPath in self.musicPaths:
+            for directory in os.walk(musicPath):
+                for file in directory[2]:
+                    path = os.path.join(directory[0], file)
+                    if file.lower().endswith(self.musicExtentions):
+                        self.paths.add(path)
+                        if music.get(path) is None and path not in self.deleted:
+                            procesed += 1
+                            self.work_queue.put(path)
         while procesed > receved:
             path, data = self.return_queue.get()
             music[path] = data
@@ -126,27 +127,28 @@ class Load:
         cache = self.data["cache"]
         if not cache.get("m3u"):
             cache["m3u"] = {}
-        for directory in os.walk(self.musicPath):
-            for file in directory[2]:
-                path = os.path.join(directory[0], file)
-                if file.lower().endswith((".m3u")):
-                    if path in cache["m3u"]:
-                        continue
-                    with open(path, "r") as f:
-                        data = f.read()
-                        playlist, name = self.parse_m3u(data, path)
-                        procesed += 1
-                        for index, song in enumerate(playlist):
-                            orig_path = cache["duplicates"].get(song)
-                            if music.get(song):
-                                music[song]["playlists"][name] = index
-                                cache["m3u"][path] = True
-                            elif orig_path:
-                                self.data[orig_path]["playlists"][name] = index
-                                cache["m3u"][path] = True
-                            else:
-                                print(f"faild to find {song} form in {path}")
-        print(f"proccesed {procesed} m3u files")
+        for musicPath in self.musicPaths:
+            for directory in os.walk(musicPath):
+                for file in directory[2]:
+                    path = os.path.join(directory[0], file)
+                    if file.lower().endswith((".m3u")):
+                        if path in cache["m3u"]:
+                            continue
+                        with open(path, "r") as f:
+                            data = f.read()
+                            playlist, name = self.parse_m3u(data, path)
+                            procesed += 1
+                            for index, song in enumerate(playlist):
+                                orig_path = cache["duplicates"].get(song)
+                                if music.get(song):
+                                    music[song]["playlists"][name] = index
+                                    cache["m3u"][path] = True
+                                elif orig_path:
+                                    self.data[orig_path]["playlists"][name] = index
+                                    cache["m3u"][path] = True
+                                else:
+                                    print(f"faild to find {song} form in {path}")
+            print(f"proccesed {procesed} m3u files")
 
     def _clean_db(self):
         songs = {}
@@ -179,8 +181,9 @@ class Load:
         self.get_music()
         self.get_m3u()
         self._clean_db()
+        print(f"total entrys {len(self.data['music'])}")
         self._save_data()
 
 if __name__ == "__main__":
-    load = Load("/home/neros/Music/", "/home/neros/Documents/projects/music/data/db.json")
+    load = Load(["/home/neros/Music/"], "/home/neros/Documents/projects/music/data/s_db.json")
     load.fill_db()

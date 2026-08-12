@@ -6,28 +6,26 @@ from threading import Thread, Lock
 from typing import List, Optional
 from inputWidget import Token
 from parser import Parser
-from pathlib import Path
+from load import Load
+from config import Config
 from ui import Ui
 import logging
 import wcwidth
 import time
-import json
+import sys
 import os
 
 class Main:
-    def __init__(self) -> None:
-        print("\x1b[?1h")
+    def __init__(self, config: Config) -> None:
+        self.config = config
         logging.getLogger('thefuzz').setLevel(logging.ERROR)
         self.log = open("logs/log", "a")
         self.running = True
 
-        self.db_path = "/home/neros/Documents/projects/music/data/db.json"
-        self.socket_file = "/tmp/mpv"
-        self._mpv_cmd = f"mpv --input-ipc-server={self.socket_file} --idle=yes --player-operation-mode=pseudo-gui"
-        self._music_workspace = 8
-        self._playback_cmd= f'hyprctl dispatch \'hl.dsp.exec_cmd("{self._mpv_cmd}", {{ workspace = "{self._music_workspace} silent" }})\''
-        self._theme_path = Path("~/.alice/theme/current/music-launcher.json").expanduser()
-
+        self.db_path = config.db_path()
+        self.socket_file = config.config["socket_file"]
+        self._playback_cmd = config.config["player_cmd"]
+        self.syntax_colors = {}
         self.fg, self.bg, self.surface_bg = self._get_theme()
 
         self.pbc_lock = Lock()
@@ -67,12 +65,16 @@ class Main:
         print("shift + enter pressed", file=self.log)
 
     def _get_theme(self):
-        data = self._theme_path.read_text()
-        data = json.loads(data)
-        for color in data:
-            hex_color = data[color].replace("#", "").strip()
-            data[color] = [int(hex_color[0:2], 16), int(hex_color[2:4], 16), int(hex_color[4:6], 16)]
-        return data["foreground"], data["background"], data["surface_bg"]
+        syntax = self.config.config["theme"]["syntax"]
+        self.syntax_colors = {
+            token_types.TYPE: syntax["TYPE"],  
+            token_types.S_VALUE: syntax["STRING_VALUE"], 
+            token_types.VALUE: syntax["VALUE"],  
+            token_types.OP: syntax["OP"],  
+            token_types.L_OP: syntax["SCOPE"],
+            token_types.R_OP: syntax["SCOPE"],
+        }
+        return self.config.config["theme"]["foreground"], self.config.config["theme"]["background"], self.config.config["theme"]["surface_bg"]
 
 
     def _start_pbc(self):
@@ -209,18 +211,10 @@ class Main:
         if self.old_text == self.text and self.old_curser_index == self.curser_index: 
             return self.old_tokens
         tokens = []
-        colors = {
-            token_types.TYPE: [0xd2, 0x8c, 0x89],  
-            token_types.S_VALUE: [0x3e, 0x87, 0xa3], 
-            token_types.VALUE: [0xe2, 0xb3, 0x70],  
-            token_types.OP: [0x81, 0xa8, 0xe6],  
-            token_types.L_OP: [0x81, 0xa8, 0xe6],
-            token_types.R_OP: [0x81, 0xa8, 0xe6],
-        }
         for token in self.lexer.lex(self.text):
             if not token.virtual:
                 for ch in token.value:
-                    tokens.append(Token(colors[token.token_type], self.bg, ch))
+                    tokens.append(Token(self.syntax_colors[token.token_type], self.bg, ch))
         
         last_token = self.lexer.split_string(self.text)
         key_word = ""
@@ -239,7 +233,7 @@ class Main:
             elif key_word in operator_keywords:
                 self.replace = f"{key_word} "
             for ch in self.replace[len(last_token[-2].value):]:
-                tokens.append(Token([0x91, 0x88, 0xa8], self.bg, ch))
+                tokens.append(Token(self.config.config["theme"]["syntax"]["AUTO_COMPLETE"], self.bg, ch))
         else:
             self.replace = ""
         ch = " "
@@ -272,7 +266,15 @@ class Main:
         os.system("clear")
 
 if __name__ == "__main__":
-    main = Main()
-    main.run()
-    print("\x1b[?25h")
+    config = Config("music-launcher")
+    args = sys.argv
+    if len(args) > 1 and args[1] == "load":
+        print(f"Loading music into db...")
+        load = Load(config.config["music_paths"], config.db_path())
+        load.fill_db()
+    else:
+        print("\x1b[?1h")
+        main = Main(config)
+        main.run()
+        print("\x1b[?25h")
 
