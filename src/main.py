@@ -22,7 +22,7 @@ class Main:
         self.running = True
 
         self.db_path = config.db_path()
-        # self.db_path = "data/tmp_db.json"
+        self.db_path = "data/db.json"
         self.socket_file = config.config["socket_file"]
         self._playback_cmd = config.config["player_cmd"]
         self.syntax_colors = {}
@@ -56,7 +56,6 @@ class Main:
 
         self.special_keys = {
                 "Backspace": self._backspace,
-                "Shift + Enter": self._shift_enter,
                 "Left": self._move_left,
                 "Right": self._move_right,
                 "Enter": self._handle_enter,
@@ -64,9 +63,6 @@ class Main:
                 "Up": self._move_up,
                 "Tab": self._replace,
             }
-    def _shift_enter(self):
-        print("shift + enter pressed", file=self.log)
-
     def _get_theme(self):
         syntax = self.config.config["theme"]["syntax"]
         self.syntax_colors = {
@@ -154,16 +150,16 @@ class Main:
             s.replace(i, " ")
         return s
 
-    def draw_list(self):
+    def draw_list(self, start, end):
         width = self.ui.song_list_size[0]
         text = []
         if self.options is None and self.old_options is None:
-            return ""
+            return [""]
         elif self.options is None:
             results: Playable = self.old_options
         else:
             results: Playable = self.options
-        if self.old_options == results:
+        if False:
             return self.old_list_text
         else:
             self.play_type = results.get_playable_type()
@@ -171,7 +167,7 @@ class Main:
             secound_row = (width // 3) - 5
             third_row = width - (first_row + secound_row)
             header = True
-            for result in results:
+            for result in results.playable[start: end - 1]:
                 if type(result) == Playlist:
                     if header:
                         line = f"{'Playlist Name':<{first_row}}{'Predominant Artist':<{secound_row}}{'Track Count':>{third_row}}"
@@ -181,8 +177,8 @@ class Main:
                 else:
                     if header:
                         line = f"{'Song Name':<{first_row}}{'Artist':<{secound_row}}{'Track Duration':>{third_row}}"
-                    first = f"{self._sanitize_string(result.get('title', 'None'))}"
-                    secound = f"{self._sanitize_string(result.get('artist', 'None')[0])}"
+                    first = f"{self._sanitize_string(result.get('title'))}"
+                    secound = f"{self._sanitize_string(result.get('artist')[0])}"
                     third = f"{(result.get('duration') / 60):.2f}"
                 first_wc_err = (wcwidth.wcswidth(first) - len(first))
                 secound_wc_err = (wcwidth.wcswidth(secound) - len(secound))
@@ -278,22 +274,25 @@ class Main:
     def run(self):
         frame_time = 1 / self.frame_rate
         last_frame = time.perf_counter()
+        max_ui_time = 0
+        max_options_time = 0
         os.system("clear")
         while self.running:
             try:
                 text = self.draw_text()
-                elements = self.draw_list()
-                keys = self.ui.update(text, elements, self.selected)
+                keys = self.ui.update(text, self.draw_list, self.selected)
                 self.events(keys)
 
                 # give the remaining time to get_options
                 now = time.perf_counter()
                 elapsed = now - last_frame
+                max_ui_time = max(max_ui_time, elapsed)
                 if elapsed < frame_time:
                     self.get_options(now + (frame_time - elapsed))
                 # sleep remaining amont if get_options ends early
-                now = time.perf_counter()
-                elapsed = now - last_frame
+                new_now = time.perf_counter()
+                max_options_time = max(max_options_time, new_now - now)
+                elapsed = new_now - last_frame
                 if elapsed < frame_time:
                     time.sleep(frame_time - elapsed)
                 last_frame = time.perf_counter()
@@ -301,6 +300,8 @@ class Main:
             except KeyboardInterrupt:
                 break
         os.system("clear")
+        print(max_ui_time)
+        print(max_options_time)
 
 if __name__ == "__main__":
     config = Config("music-launcher")

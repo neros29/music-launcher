@@ -14,16 +14,13 @@ class ListWidget:
         self.margin = 5
 
 
-    def _render(self, elements: List[str], selected):
-        if len(elements) > self.list_surface.size()[1]:
-            if self.bottom != 0 and selected <= self.bottom + self.margin: # if selected is margin from the top
-                self.bottom = selected - self.margin
-            elif selected >= (self.bottom + self.list_surface.size()[1]) - self.margin: # if selected is margin from the bottom
-                self.bottom = selected - (self.list_surface.size()[1] - self.margin)
-        else: 
-            self.bottom = 0
-        string = elements[0] + "\n" if len(elements) > 0 else "" # get the header if there are any elements.
-        string += "\n".join(elements[(self.bottom + 1): (self.bottom + 1) + self.list_surface.size()[1]])
+    def _render(self, generater, selected):
+        if self.bottom != 0 and selected <= self.bottom + self.margin: # if selected is margin from the top
+            self.bottom = selected - self.margin
+        elif selected >= (self.bottom + self.list_surface.size()[1]) - self.margin: # if selected is margin from the bottom
+            self.bottom = selected - (self.list_surface.size()[1] - self.margin)
+        string = "" 
+        string += "\n".join(generater(self.bottom, self.bottom + self.list_surface.size()[1]))
         diff = self.list_surface.size()[1] - len(string.split("\n"))
         for _ in range(diff):
             string += " " * self.list_surface.size()[0] + "\n"
@@ -33,7 +30,7 @@ class ListWidget:
     def _move_selected(self, selected):
         self.selector_surface.set_offset(self.list_surface.offset()[0], self.list_surface.offset()[1] + selected + 1)
 
-    def update(self, elements: List[str], selected=0):
-        self._render(elements, selected)
+    def update(self, generater, selected=0):
+        self._render(generater, selected)
         self._move_selected(selected - self.bottom)
 

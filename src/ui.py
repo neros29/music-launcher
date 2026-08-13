@@ -38,11 +38,10 @@ class Ui:
         self.search_bar = SearchBar(self.search_bar_size, self.search_bar_offset, self.tui, self.fg, self.bg, self.surface_bg)
         self.song_list = SongList(self.song_list_size, self.song_list_offset, self.tui, self.fg, self.bg, self.surface_bg)
 
-    def update(self, tokens: List[Token], elements: List[str], selected):
-        if self.old_elements != elements or self.old_selected != selected:
-            self.old_elements = elements
-            self.old_selected = selected
-            self.song_list.update(elements, selected)
+    def update(self, tokens: List[Token], elements, selected):
+        self.old_elements = elements
+        self.old_selected = selected
+        self.song_list.update(elements, selected)
         if self.old_tokens != tokens:
             self.old_tokens = tokens
             self.search_bar.render_text(tokens)
