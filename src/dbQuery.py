@@ -1,3 +1,4 @@
+from logging import root
 from pathlib import Path
 from typing import List, Optional
 from rapidfuzz import fuzz
@@ -58,7 +59,7 @@ class Playlist:
 
     def _sort_song(self):
         if self.name != "":
-            self.songs.sort(key=lambda x: x.get("playlists")[self.name] if x.get("playlists")[self.name] is not None else float("inf"))
+            self.songs.sort(key=lambda x: x.get("playlists")[self.name] if x.get("playlists").get(self.name) is not None else float("inf"))
 
     def _get_score(self):
         score = 0
@@ -100,7 +101,9 @@ class Query:
         self.db_path: Path = db_path if isinstance(db_path, Path) else Path(db_path)
         self.data = self._load_file()
         self.generator = None
+        self.query_playlist_gen = None
         self.stop_time = None
+        self.last_query = None
         self.funcs = {
                 "fuzz": self._fuzz,
                 "re": self._glob,
@@ -234,28 +237,52 @@ class Query:
                 results += self._compile_ast(pair, op)
         return [{"func": "self", "key": ast.key.strip().lower() if isinstance(ast.key, str) else ast.key, "value": results.strip().lower() if isinstance(results, str) else results, "op": i_op}]
 
-    def get_playlsits(self, songs: List[Song]):
-        playlists_names = {}
-        for root_song in songs:
-            for playlist in root_song.get("playlists"):
-                playlists_names[playlist] = {"songs": [], "root_song": root_song}
+    def _query_playlists(self, playlists_names):
+        total_iters = 0
         for song in self.data:
+            if total_iters % 100 == 0:
+                if time.perf_counter() >= self.stop_time:
+                    yield (playlists_names, False)
             for playlist in self.data[song].get("playlists", []):
                 if playlist in playlists_names:
                     playlists_names[playlist]["songs"].append(Song(song, self._score_song(song, playlists_names[playlist]["root_song"].query)[1], self, playlists_names[playlist]["root_song"].query))
+            total_iters += 1
+        yield (playlists_names, True)
+
+    def get_playlsits(self, songs: List[Song]):
+        if self.query_playlist_gen is None:
+            playlists_names = {}
+            for root_song in songs:
+                if len(root_song.get("playlists")) == 0:
+                    playlists_names[root_song.get("title")] = {"songs": [], "root_song": root_song}
+                    playlists_names[root_song.get("title")]["songs"] = [root_song]
+                for playlist in root_song.get("playlists"):
+                    playlists_names[playlist] = {"songs": [], "root_song": root_song}
+            self.query_playlist_gen = self._query_playlists(playlists_names)
+        playlists_names, done = next(self.query_playlist_gen)
+        if done:
+            self.query_playlist_gen = None
         results = []
         for playlist in playlists_names:
-            if len(playlists_names[playlist]["songs"]) > 1:
+            if len(playlists_names[playlist]["songs"]) > 0:
                 results.append(Playlist(playlists_names[playlist]["songs"], playlist, playlists_names[playlist]["root_song"]))
-        return results
+        return (results, done)
 
 
     def query(self, ast: Pair, stop_time, restart = False):
         asm = self._compile_ast(ast)
         self.stop_time = stop_time
         if self.generator is None or restart:
+            self.last_query = None
             self.generator = self._query_db(asm)
-        results, done = next(self.generator)
+        if not self.last_query is not None:
+            results, done = next(self.generator)
+            self.query_playlist_gen = None
+            if done:
+                self.last_query = results
+        else:
+            done = True
+            results = self.last_query
         if asm[0]["key"] == "songs":
             return (Playable(results, "songs"), done)
 
@@ -266,20 +293,20 @@ class Query:
             return (Playable(results, "insert-next"), done)
 
         if asm[0]["key"] == "append-playlist":
-            playlists = self.get_playlsits(results)
-            return (Playable(playlists, "append"), done)
+            playlists, p_done = self.get_playlsits(results)
+            return (Playable(playlists, "append"), done and p_done)
 
         if asm[0]["key"] == "all-matches":
             return (Playable([Playlist(results, "", None)], "all-matches"), done)
 
         if asm[0]["key"] == "shuffled-playlists":
-            playlists = self.get_playlsits(results)
+            playlists, p_done = self.get_playlsits(results)
             for playlist in playlists:
                 shuffle(playlist.songs)
-            return (Playable(playlists, "shuffled-playlists"), done)
+            return (Playable(playlists, "shuffled-playlists"), done and p_done)
 
-        playlists = self.get_playlsits(results)
-        return (Playable(playlists, "playlists"), done)
+        playlists, p_done = self.get_playlsits(results)
+        return (Playable(playlists, "playlists"), done and p_done)
 
 if __name__ == "__main__":
     def print_playable(results):
@@ -292,7 +319,7 @@ if __name__ == "__main__":
     parser = Parser()
     query = Query("data/tmp_db.json")
     string = "add: artist: ironmouse and title: left right"
-    # string = "album: album: liked music"
+    string = "playlists: artist: ironmouse"
     tokens = lexer.lex(string)
     ast = parser.parse(tokens)
     start = time.time()

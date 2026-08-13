@@ -22,7 +22,6 @@ class Main:
         self.running = True
 
         self.db_path = config.db_path()
-        self.db_path = "data/db.json"
         self.socket_file = config.config["socket_file"]
         self._playback_cmd = config.config["player_cmd"]
         self.syntax_colors = {}
