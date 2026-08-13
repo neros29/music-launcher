@@ -54,7 +54,7 @@ install: all
 	
 	# Generate wrapper script pointing straight to the venv python and app source
 	@echo '#!/bin/bash' > $(BIN_DIR)/$(APP_NAME)
-	@echo 'cd $(INSTALL_DIR)' > $(BIN_DIR)/$(APP_NAME)
+	@echo 'cd $(INSTALL_DIR)' >> $(BIN_DIR)/$(APP_NAME)
 	@echo 'exec $(VENV_DIR)/bin/python $(INSTALL_DIR)/src/main.py "$$@"' >> $(BIN_DIR)/$(APP_NAME)
 	
 	chmod +x $(BIN_DIR)/$(APP_NAME)
