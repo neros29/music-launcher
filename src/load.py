@@ -144,7 +144,7 @@ class Load:
                                     music[song]["playlists"][name] = index
                                     cache["m3u"][path] = True
                                 elif orig_path:
-                                    self.data[orig_path]["playlists"][name] = index
+                                    self.data["music"][orig_path]["playlists"][name] = index
                                     cache["m3u"][path] = True
                                 else:
                                     print(f"faild to find {song} form in {path}")
