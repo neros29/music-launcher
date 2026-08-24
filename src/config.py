@@ -98,14 +98,14 @@ class Config:
                 if isinstance(v, dict):
                     for s_k, s_v in v.items():
                         color = False
-                        if data.get(k) and data.get(s_k):
+                        if data.get(k) and data.get(k).get(s_k):
                             color = self._hex_to_rgb(data[k][s_k])
                         self.config["theme"][k][s_k] =  color if color else self._hex_to_rgb(s_v)
                 else:
                     color = False
                     if data.get(k):
                         color = self._hex_to_rgb(data[k])
-                    self.config["theme"][k] =  color if color else self._hex_to_rgb(self.config["theme"][k])
+                    self.config["theme"][k] =  color if color else self._hex_to_rgb(v)
 
     def _generate_default_config(self, path):
         with open(str(path), "w") as f:
