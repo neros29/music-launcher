@@ -1,5 +1,5 @@
 from typing import Optional
-from lexer import Token, Tokens, Lexer
+from lexer import Token, Tokens
 from langdef import basic_types, token_types
 import langdef
 
@@ -9,7 +9,7 @@ class Pair:
         self.data_type = data_type
         self.data = data
 
-    def __repr__(self) -> str:
+    def __repr__(self) -> str: # pragma: no cover
         if isinstance(self.data, list):
             string = f"('{self.key}': ["
             string += ", ".join(repr(i) for i in self.data)

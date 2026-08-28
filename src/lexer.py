@@ -15,7 +15,7 @@ class Token:
     def set_token_type(self, token_type: token_types):
         self.token_type = token_type
     
-    def __repr__(self) -> str:
+    def __repr__(self) -> str: # pragma: no cover
         return self.value
 
     def __add__(self, other):
@@ -63,7 +63,7 @@ class Tokens:
         for i in self.data:
             yield i
 
-    def __repr__(self) -> str:
+    def __repr__(self) -> str: # pragma: no cover
         results = "["
         for i in range(0, len(self.data)):
             results += f"['{self.data[i].basic_type.name if self.data[i].token_type is None else self.data[i].token_type.name}': '{self.data[i].value}']"
@@ -207,13 +207,13 @@ class Lexer:
                     self._buffer_add()
                     self.iter += 1
                     continue
-            elif self.state != BEFORE_STRING:
+            else:
                 if self.state == IN_S_STRING:
                     quote_type = basic_types.S_QUOTES
                 elif self.state == IN_D_STRING:
                     quote_type = basic_types.D_QUOTES
                 else: 
-                    quote_type = basic_types.D_QUOTES
+                    raise SyntaxError(f"Unknown state string state '{self.state=}'")
                 if token.basic_type == quote_type:
                     self._buffer_add()
                     return True
@@ -302,7 +302,7 @@ class Lexer:
                     continue
                         
             else:
-                print(f"No function for {self.guess=}")
+                raise SyntaxError(f"No function for {self.guess=}")
 
     def lex(self, string: str):
         self.iter = 0
@@ -316,7 +316,7 @@ class Lexer:
         self._run_func()
         return deepcopy(self.results)
 
-if __name__ == "__main__":
+if __name__ == "__main__": # pragma: no cover
     string = 'playlists: artist: "*iron*" (title: king and title: "Left*")'
     string = r"playlists: playlists: 'Red (Taylor's Version)'"
     tk = Lexer()
