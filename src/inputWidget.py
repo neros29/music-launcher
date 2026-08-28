@@ -72,16 +72,16 @@ class InputWidget:
         return inputs
     def clear(self):
         self.surface.fill_ch(" ")
-        self.surface.fill_fg(self.fg[0], self.fg[1], self.fg[2])
-        self.surface.fill_bg(self.bg[0], self.bg[1], self.bg[2])
+        self.surface.fill_fg(*self.fg)
+        self.surface.fill_bg(*self.bg)
 
     def render_text(self, tokens: List[Token]):           
         self.clear()
         for num, token in enumerate(tokens, start=0):
             if num < self.surface.size()[0]:
                 color = token.color
-                self.surface[num].set_fg(color[0][0], color[0][1], color[0][2])
-                self.surface[num].set_bg(color[1][0], color[1][1], color[1][2])
+                self.surface[num].set_fg(*color[0])
+                self.surface[num].set_bg(*color[1])
                 if token.type == "cursor":
                     self._toggle_curser_shown(token.flash)
                     if self.curser_shown:

@@ -6,7 +6,7 @@ from listWidget import ListWidget
 class SearchBar(InputWidget):
     def __init__(self, size, offset, tui: Tui, fg, bg, background_bg) -> None:
         background = tui.append(size, offset, " ", 0)
-        background.fill_bg(background_bg[0], background_bg[1], background_bg[2])
+        background.fill_bg(*background_bg)
         surface = tui.append([size[0] - 4, size[1] - 2], [offset[0] + 2, offset[1] + 1], " ", 100)
         super().__init__(surface, bg, fg)
 
@@ -14,7 +14,7 @@ class SongList(ListWidget):
     def __init__(self, size, offset, tui: Tui, fg, bg, selecter_bg) -> None:
         surface = tui.append(size, offset, " ", 100)
         selecter = tui.append([size[0], 1], offset, " ", 98)
-        selecter.fill_bg(selecter_bg[0], selecter_bg[1], selecter_bg[2])
+        selecter.fill_bg(*selecter_bg)
         super().__init__(surface, selecter, fg, bg)
 
 class Ui:
