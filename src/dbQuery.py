@@ -1,4 +1,3 @@
-from logging import root
 from pathlib import Path
 from typing import List, Optional
 from rapidfuzz import fuzz
@@ -199,11 +198,11 @@ class Query:
                 if isinstance(value, (dict, list)):
                     query_result = 0.0
                     for val in value:
-                        tmp = self.funcs[query["func"]](val.lower().strip(), query["value"])
+                        tmp = self.funcs[query["func"]](val.lower().strip(), query["value"].lower().strip())
                         if tmp > query_result:
                             query_result = tmp
                 else:
-                    query_result = self.funcs[query["func"]](value.lower().strip(), query["value"])
+                    query_result = self.funcs[query["func"]](value.lower().strip(), query["value"].lower().strip())
                 if query_result > 0:
                     score.append([query["key"], query_result])
             else:
@@ -317,9 +316,8 @@ if __name__ == "__main__":
                 print(f"{i.get('title'):<150}{i.score}")
     lexer  = Lexer()
     parser = Parser()
-    query = Query("data/tmp_db.json")
+    query = Query("data/db.json")
     string = "add: artist: ironmouse and title: left right"
-    string = "playlists: artist: ironmouse"
     tokens = lexer.lex(string)
     ast = parser.parse(tokens)
     start = time.time()
