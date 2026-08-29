@@ -27,7 +27,7 @@ class Config:
                         }
                     },
                 "socket_file": "/tmp/mpv",
-                "player_cmd": "mpv --input-ipc-server={socket_file} --idle=yes --player-operation-mode=pseudo-gui"
+                "player_cmd": "mpv --input-ipc-server='/tmp/mpv' --idle=yes --player-operation-mode=pseudo-gui"
                 }
         self.config_path = self._get_config_path()
         self.default_config = False
@@ -74,11 +74,8 @@ class Config:
             self.config["player_cmd"] = user_conf["player_cmd"]
 
     def _hex_to_rgb(self, hex_str: str) -> Optional[list[int]]:
-            """Safely converts #RRGGBB or #RGB to [R, G, B]."""
             try:
                 hex_str = hex_str.lstrip('#')
-                if len(hex_str) == 3:
-                    hex_str = ''.join([c*2 for c in hex_str])
                 return [int(hex_str[i:i+2], 16) for i in (0, 2, 4)]
             except (ValueError, IndexError):
                 return None
