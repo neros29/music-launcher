@@ -4,7 +4,7 @@ import hashlib
 import socket
 import json
 import time
-from typing import Dict, List
+from typing import Optional
 
 class SendCmd:
     def __init__(self, ipc_file: str, mpv_cmd) -> None:
@@ -46,7 +46,7 @@ class SendCmd:
             close_fds=True
         )
 
-    def send(self, cmd_dict: Dict):
+    def send(self, cmd_dict: dict):
         cmd_id = self.id
         self.id += 1
         cmd_dict["request_id"] = cmd_id
@@ -93,18 +93,21 @@ class SendCmd:
         self.client.close()
 
 class PlayBackController:
-    def __init__(self, ipc_file: str, mpv_cmd: str) -> None:
+    def __init__(self, ipc_file: str, mpv_cmd: str, cache_dir: str = f"~/.cache/music-launcher") -> None:
+        self.cache_dir = cache_dir
         self._cmd_runner = SendCmd(ipc_file, mpv_cmd)
+        self.defualt_setup_comands = [
+                ["set_property", "loop-file", "no"]
+                ]
 
-    def _hash_playlist(self, songs: List[str]):
+    def _hash_playlist(self, songs: list[str]):
         hash = hashlib.sha256()
         for song in songs:
             hash.update(song.encode())
         return hash.hexdigest()
 
-
-    def _write_m3u(self, songs: List[str]) -> str:
-        path = Path("~/.cache/music-control/").expanduser()
+    def get_playlist(self, songs: list[str]) -> str:
+        path = Path(self.cache_dir).expanduser()
         path.mkdir(exist_ok=True)
         file = path / f"{self._hash_playlist(songs)}.m3u"
         if not file.is_file():
@@ -114,74 +117,48 @@ class PlayBackController:
                         f.write(song + "\n")
         return str(file)
 
-    def _replace_large(self, songs: List[str]):
-        path = self._write_m3u(songs)
-        cmd = {
-                "command": ["loadfile", path, "replace"]
-        }
-        response = self._cmd_runner.send(cmd)
-        return [response]
-        
-
-    def _replace(self, songs: List[str]):
+    def play_song(self, songs: list[str], command: str, setup_commands: Optional[list[list]]=None) -> list:
+        if setup_commands is None:
+            setup_commands = []
         responses = []
-        first = True
-        for song in songs: 
-            if Path(song).is_file():
-                if first:
-                    cmd = {
-                            "command": ["loadfile", song, "replace"]
-                    }
-                    first = False
-                else:
-                    cmd = {
-                            "command": ["loadfile", song, "append"]
-                    }
-                response = self._cmd_runner.send(cmd)
-                responses.append(response)
+
+        to_play = None
+        if len(songs) > 1:
+            to_play = self.get_playlist(songs)
+        elif len(songs) == 1:
+            to_play = songs[0]
+
+        if to_play is not None and Path(to_play).is_file():
+            cmds = []
+            for c in setup_commands:
+                cmds.append({"command": c})
+            cmds.append({"command": ["loadfile", to_play, command]})
+            for cmd in cmds:
+                responses.append(self._cmd_runner.send(cmd))
+        else:
+            responses.append(f"File {to_play} not found")
         return responses
 
-    def _append(self, songs: List[str]):
-        responses = []
-        for song in songs: 
-            if Path(song).is_file():
-                cmd = {
-                        "command": ["loadfile", song, "append"]
-                }
-                response = self._cmd_runner.send(cmd)
-                responses.append(response)
-        return responses
+    def replace_playlist(self, songs: list[str]):
+        if not isinstance(songs, list):
+            raise ValueError("Songs must be a list")
+        return self.play_song(songs, "replace", self.defualt_setup_comands)
 
-    def _insert(self, songs: List[str]):
-        responses = []
-        for song in songs: 
-            if Path(song).is_file():
-                cmd = {
-                        "command": ["loadfile", song, "insert-next"]
-                }
-                response = self._cmd_runner.send(cmd)
-                responses.append(response)
-        return responses
+    def replace_song_loop(self, songs: list[str]):
+        if not isinstance(songs, list):
+            raise ValueError("Songs must be a list")
+        loop_cmd = [["set_property", "loop-file", "inf"]]
+        return self.play_song(songs, "replace", self.defualt_setup_comands + loop_cmd)
+
+    def add_to_playlists(self, songs: list[str]):
+        if not isinstance(songs, list):
+            raise ValueError("Songs must be a list")
+        return self.play_song(songs, "append", self.defualt_setup_comands)
+
+    def add_next_song(self, songs: list[str]):
+        if not isinstance(songs, list):
+            raise ValueError("Songs must be a list")
+        return self.play_song(songs, "insert-next", self.defualt_setup_comands)
 
     def exit(self):
         self._cmd_runner.exit()
-
-    def replace_playlist(self, songs: List[str]):
-        if not isinstance(songs, list):
-            raise ValueError("Songs must be a list")
-        large: int = 30
-        if len(songs) > large:
-            return self._replace_large(songs)
-        else:
-            return self._replace(songs)
-
-    def add_to_playlists(self, songs: List[str]):
-        if not isinstance(songs, list):
-            raise ValueError("Songs must be a list")
-        return self._append(songs)
-
-    def add_next_song(self, songs: List[str]):
-        if not isinstance(songs, list):
-            raise ValueError("Songs must be a list")
-        return self._insert(songs)
-
