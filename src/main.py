@@ -9,8 +9,8 @@ logger = logging.getLogger(__name__)
 
 def setup_logging(log_file_path = "logs/debug.log"):
     # 1. Create a root logger
-    logger = logging.getLogger()
-    logger.setLevel(logging.DEBUG)
+    root_logger = logging.getLogger()
+    root_logger.setLevel(logging.DEBUG)
 
     # 2. Create the Rotating File Handler
     # This keeps up to 5 backup files, each max 5MB
@@ -30,7 +30,8 @@ def setup_logging(log_file_path = "logs/debug.log"):
     file_handler.setFormatter(formatter)
 
     # 4. Add the handler to the root logger
-    logger.addHandler(file_handler)
+    root_logger.addHandler(file_handler)
+    root_logger.info("Application logging started.")
 
 def run():
     config = Config("music-launcher")
