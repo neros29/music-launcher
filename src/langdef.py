@@ -41,6 +41,8 @@ type_keywords = {
         "next": "insert-next",
 
         "all": "all-matches",
+
+        "loop": "loop"
         }
 
 operator_keywords = {

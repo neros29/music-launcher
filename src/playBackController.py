@@ -96,9 +96,6 @@ class PlayBackController:
     def __init__(self, ipc_file: str, mpv_cmd: str, cache_dir: str = f"~/.cache/music-launcher") -> None:
         self.cache_dir = cache_dir
         self._cmd_runner = SendCmd(ipc_file, mpv_cmd)
-        self.defualt_setup_comands = [
-                ["set_property", "loop-file", "no"]
-                ]
 
     def _hash_playlist(self, songs: list[str]):
         hash = hashlib.sha256()
@@ -106,7 +103,7 @@ class PlayBackController:
             hash.update(song.encode())
         return hash.hexdigest()
 
-    def get_playlist(self, songs: list[str]) -> str:
+    def _get_playlist(self, songs: list[str]) -> str:
         path = Path(self.cache_dir).expanduser()
         path.mkdir(exist_ok=True)
         file = path / f"{self._hash_playlist(songs)}.m3u"
@@ -121,10 +118,9 @@ class PlayBackController:
         if setup_commands is None:
             setup_commands = []
         responses = []
-
         to_play = None
         if len(songs) > 1:
-            to_play = self.get_playlist(songs)
+            to_play = self._get_playlist(songs)
         elif len(songs) == 1:
             to_play = songs[0]
 
@@ -139,26 +135,5 @@ class PlayBackController:
             responses.append(f"File {to_play} not found")
         return responses
 
-    def replace_playlist(self, songs: list[str]):
-        if not isinstance(songs, list):
-            raise ValueError("Songs must be a list")
-        return self.play_song(songs, "replace", self.defualt_setup_comands)
-
-    def replace_song_loop(self, songs: list[str]):
-        if not isinstance(songs, list):
-            raise ValueError("Songs must be a list")
-        loop_cmd = [["set_property", "loop-file", "inf"]]
-        return self.play_song(songs, "replace", self.defualt_setup_comands + loop_cmd)
-
-    def add_to_playlists(self, songs: list[str]):
-        if not isinstance(songs, list):
-            raise ValueError("Songs must be a list")
-        return self.play_song(songs, "append", self.defualt_setup_comands)
-
-    def add_next_song(self, songs: list[str]):
-        if not isinstance(songs, list):
-            raise ValueError("Songs must be a list")
-        return self.play_song(songs, "insert-next", self.defualt_setup_comands)
-
     def exit(self):
-        self._cmd_runner.exit()
+            self._cmd_runner.exit()

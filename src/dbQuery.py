@@ -285,6 +285,9 @@ class Query:
         if asm[0]["key"] == "songs":
             return (Playable(results, "songs"), done)
 
+        if asm[0]["key"] == "loop":
+            return (Playable(results, "loop"), done)
+
         if asm[0]["key"] == "append":
             return (Playable(results, "append"), done)
 
