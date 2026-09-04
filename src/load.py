@@ -155,7 +155,7 @@ class Load:
         dups = []
         for song in self.data["music"]:
             if not song in self.paths:
-                print(f"song {song}")
+                print(f"Song {song} dose not exits. Deleting it from the database.")
                 dups.append(song)
                 continue
             song_data = self.data["music"][song]
@@ -167,13 +167,13 @@ class Load:
         for song in dups:
             song_data = self.data["music"][song]
             song_hash = f"{song_data['title']},{song_data['artist']},{song_data['date']}" 
-            # if song_hash in songs:
-            orig = songs[song_hash]
-            orig_data = self.data["music"][orig]["playlists"]
-            for playlist in song_data["playlists"]:
-                if playlist not in orig_data or orig_data[playlist] == None:
-                    orig_data[playlist] = song_data["playlists"][playlist]
-            self.data["cache"]["duplicates"][song] = orig
+            if song_hash in songs:
+                orig = songs[song_hash]
+                orig_data = self.data["music"][orig]["playlists"]
+                for playlist in song_data["playlists"]:
+                    if playlist not in orig_data or orig_data[playlist] == None:
+                        orig_data[playlist] = song_data["playlists"][playlist]
+                self.data["cache"]["duplicates"][song] = orig
             del self.data["music"][song]
         print(f"deleted {len(dups)}")
     
