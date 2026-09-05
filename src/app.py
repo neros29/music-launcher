@@ -30,7 +30,7 @@ class Main:
         self.fg, self.bg, self.surface_bg = self._get_theme()
 
         self.pbc_lock = Lock()
-        self.pbc: Optional[PlayBackController] = None
+        self.pbc: tuple[Optional[PlayBackController], str] = (None, "")
         self.t = Thread(target=self._start_pbc, daemon=True)
         self.t.start()
         self.query: Query = Query(self.db_path)
@@ -79,7 +79,11 @@ class Main:
 
     def _start_pbc(self):
         with self.pbc_lock:
-            self.pbc = PlayBackController(self.socket_file, self._playback_cmd)
+            try:
+                self.pbc = (PlayBackController(self.socket_file, self._playback_cmd), "success")
+            except Exception as e:
+                self.pbc = (None, str(e))
+
 
     def _replace(self):
         if self.replace != "":
@@ -208,21 +212,34 @@ class Main:
         loop_cmd = [["set_property", "loop-file", "inf"]]
 
         with self.pbc_lock:
-            assert self.pbc is not None, "to fix lsp"
+            if self.pbc[1] != "success" or self.pbc[0] is None: 
+                # NOTE: This should eventually print the error message to stdout since it's fatal
+                logger.error("Playback controller object failed to launch, with Error (%s)", self.pbc[1])
+                self.running = False
+                return
+            pbc = self.pbc[0]
             if self.play_type == "append":
                 self.append = False
-                response = self.pbc.play_song(songs, "append", defualt_setup_comands)
-                logger.debug("append %s ", response.__repr__())
+                responses = pbc.play_song(songs, "append", defualt_setup_comands)
+                for response in responses:
+                    if response[1] != 'success':
+                        logger.warning("Append command failed with response '%s' ", response[0])
             elif self.play_type == "insert-next":
                 self.next_song = False
-                response = self.pbc.play_song(songs, "insert-next", defualt_setup_comands)
-                logger.debug("insert-next %s ", response.__repr__())
+                responses = pbc.play_song(songs, "insert-next", defualt_setup_comands)
+                for response in responses:
+                    if response[1] != 'success':
+                        logger.warning("Insert-next command failed with response '%s' ", response[0])
             elif self.play_type == "loop":
-                response = self.pbc.play_song(songs, "replace", defualt_setup_comands + loop_cmd)
-                logger.debug("loop-replace %s ", response.__repr__())
+                responses = pbc.play_song(songs, "replace", defualt_setup_comands + loop_cmd)
+                for response in responses:
+                    if response[1] != 'success':
+                        logger.warning("Loop command failed with response '%s' ", response[0])
             else:
-                response = self.pbc.play_song(songs, "replace", defualt_setup_comands)
-                logger.debug("replace %s ", response.__repr__())
+                responses = pbc.play_song(songs, "replace", defualt_setup_comands)
+                for response in responses:
+                    if response[1] != 'success':
+                        logger.warning("Replace command failed with response '%s' ", response[0])
 
     def _add_character(self, key):
         first = self.text[:self.curser_index]
@@ -312,6 +329,7 @@ class Main:
 
             except KeyboardInterrupt:
                 break
+        self.t.join()
         os.system("clear")
         print(max_ui_time)
         print(max_options_time)
