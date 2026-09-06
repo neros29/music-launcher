@@ -1,6 +1,7 @@
 from langdef import type_keywords, operator_keywords
 from playBackController import PlayBackController
 from dbQuery import Playable, Query, Playlist
+from events import Events, Event
 from lexer import Lexer, token_types
 from threading import Thread, Lock
 from typing import List, Optional
@@ -8,11 +9,13 @@ from inputWidget import Token
 from parser import Parser
 from config import Config
 from ui import Ui
+from enum import Enum, auto
 import logging
 import wcwidth
 import time
 import os
 import logging
+
 
 logger = logging.getLogger(__name__)
 
@@ -45,6 +48,7 @@ class Main:
         self.options = None
         self.old_options = None
         self.old_list_text = []
+        self.input_events = Events(self.ui.search_bar.surface)
 
         self.play_type = "song"
         self.curser_index = 0
@@ -56,14 +60,15 @@ class Main:
         self.saved_ast = None
 
         self.special_keys = {
-                "Backspace": self._backspace,
-                "Left": self._move_left,
-                "Right": self._move_right,
-                "Enter": self._handle_enter,
-                "Down": self._move_down,
-                "Up": self._move_up,
-                "Tab": self._replace,
+                Event.BACKSPACE: self._backspace,
+                Event.LEFT: self._move_left,
+                Event.RIGHT: self._move_right,
+                Event.ENTER: self._handle_enter,
+                Event.DOWN: self._move_down,
+                Event.UP: self._move_up,
+                Event.TAB: self._replace,
             }
+
     def _get_theme(self):
         syntax = self.config.config["theme"]["syntax"]
         self.syntax_colors = {
@@ -156,7 +161,7 @@ class Main:
         return s
 
     def draw_list(self, start, end):
-        width = self.ui.song_list_size[0]
+        width = self.ui.song_list_size[0] - self.ui.song_list_margin[0]
         text = []
         if self.options is None and self.old_options is None:
             return [""]
@@ -255,13 +260,15 @@ class Main:
             self.text += "'"
 
 
-    def events(self, keys: List[str]):
+    def events(self, keys: List[tuple[Event, Optional[str]]]):
         for key in keys:
-            if key in self.special_keys:
-                self.special_keys[key]()
-            else:
-                self._add_character(key)
+            if key[0] == Event.PRINTABLE:
+                logger.debug("Received key '%s' calling Main._add_character", key[1])
+                self._add_character(key[1])
                 self.new_key = True
+            else:
+                logger.debug("Received special key '%s' calling Main.'%s'", key[0], self.special_keys[key[0]].__name__)
+                self.special_keys[key[0]]()
 
     def draw_text(self):
         if self.old_text == self.text and self.old_curser_index == self.curser_index: 
@@ -293,9 +300,6 @@ class Main:
         else:
             self.replace = ""
         ch = " "
-        if 0 <= self.curser_index < len(self.text) + len(self.replace):
-            ch = tokens.pop(self.curser_index).character
-        tokens.insert(self.curser_index, Token(self.bg, self.fg, ch, "cursor"))
         self.old_tokens = tokens
         self.old_curser_index = self.curser_index
         return tokens
@@ -310,7 +314,8 @@ class Main:
         while self.running:
             try:
                 text = self.draw_text()
-                keys = self.ui.update(text, self.draw_list, self.selected)
+                self.ui.update((text, (self.curser_index, 0)), (self.draw_list, self.selected))
+                keys = self.input_events.get_events()
                 self.events(keys)
 
                 # give the remaining time to get_options

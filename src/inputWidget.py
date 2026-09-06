@@ -2,6 +2,7 @@ import string
 from typing import  List, Optional
 import time
 from pytui import  Surface
+from logging import getLogger
 
 class Token:
     def __init__(self, fg, bg, ch, token_type="text", flash = None) -> None:
@@ -21,80 +22,28 @@ class Token:
     def __repr__(self):
         return self.character
 
-class Element:
-    def __init__(self, tokens: List[Token]) -> None:
-        self.tokens = tokens
-
-    def __eq__(self, value: object, /) -> bool:
-        if isinstance(value, Element):
-            return self.tokens == value.tokens
-        return NotImplemented
-    def __iter__(self):
-        for i in self.tokens:
-            yield i
-
 class InputWidget:
-    def __init__(self, surface: Surface, bg: List, fg: List):
+    def __init__(self, surface: Surface, bg: List, fg: List, curser: Optional[Token] = None):
         self.surface = surface
         self.fg = fg
         self.bg = bg
-        self.special_keys = {
-            chr(127): "Backspace",
-            chr(10): "Enter",
-            "Left": "Left",
-            "Right": "Right",
-            "Up": "Up",
-            "Down": "Down",
-            chr(0x09): "Tab",
-            chr(0x13): "ctrl_s",
-        }
-        self.curser_shown = True
+        self.curser = curser if curser is not None else Token(self.bg, self.fg, " ")
         self.last_time = time.time()
-        self.keys = self._register_keys()
-        self.old_tokens = None
+        self.width, self.hight = self.surface.size()
+        self.current_surf: List[Optional[Token]] = [None for _ in range(self.width) for _ in range(self.hight)]
 
-    def _register_keys(self):
-        keys = list(string.printable)
-        s_chs = []
-        for s_ch in self.special_keys:
-            s_chs.append(s_ch)
-        self.surface.register_keys(s_chs + keys)
-        return keys
-
-    def get_input(self):
-        inputs = []
-        for key in self.special_keys:
-            if self.surface.get_event(key):
-                inputs.append(self.special_keys[key])
-        for key in self.keys:
-            if self.surface.get_event(key):
-                inputs.append(key)
-        return inputs
-    def clear(self):
-        self.surface.fill_ch(" ")
-        self.surface.fill_fg(*self.fg)
-        self.surface.fill_bg(*self.bg)
-
-    def render_text(self, tokens: List[Token]):           
-        self.clear()
-        for num, token in enumerate(tokens, start=0):
-            if num < self.surface.size()[0]:
+    def render_text(self, tokens: List[Token], curser_pos: tuple[int, int]):           
+        token_idx = 0
+        for y in range(self.hight):
+            for x in range(self.width):
+                token = tokens[token_idx] if len(tokens) > token_idx else Token(self.fg, self.bg, " ")
+                if x == curser_pos[0] and y == curser_pos[1]:
+                    token.color = self.curser.color
+                token_idx += 1
+                idx = y * self.width + x
                 color = token.color
-                self.surface[num].set_fg(*color[0])
-                self.surface[num].set_bg(*color[1])
-                if token.type == "cursor":
-                    self._toggle_curser_shown(token.flash)
-                    if self.curser_shown:
-                        self.surface[num].set_ch(token.character)
-                else:
-                    self.surface[num].set_ch(token.character)
-
-    def _toggle_curser_shown(self, flash_time: Optional[float]):
-        if flash_time == None:
-            self.curser_shown = True
-            return 
-        if time.time() >= self.last_time + flash_time:
-            self.curser_shown = False if self.curser_shown else True
-            self.last_time = time.time()
-
-        
+                if self.current_surf[idx] != token:
+                    self.surface[idx].set_fg(*color[0])
+                    self.surface[idx].set_bg(*color[1])
+                    self.surface[idx].set_ch(token.character)
+                    self.current_surf[idx] = token
