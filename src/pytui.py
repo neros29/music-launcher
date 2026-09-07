@@ -1,9 +1,17 @@
 from typing import List
+from logging import getLogger
+import atexit
 
 from sys import path
 path.append("include/tuilib/build/")
 import tui
 
+logger = getLogger(__name__)
+tui.set_logger(logger.log)
+def cleanup_logging():
+    tui.set_logger(None)
+
+atexit.register(cleanup_logging)
 class Character:
     def __init__(self, character: tui.Character) -> None:
         self.char = character
