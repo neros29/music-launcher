@@ -221,7 +221,7 @@ class Main:
                 ["set_property", "loop-file", "no"]
                 ]
         loop_cmd = [["set_property", "loop-file", "inf"]]
-
+        logger.info("Playing songs %s", songs)
         with self.pbc_lock:
             if self.pbc[1] != "success" or self.pbc[0] is None: 
                 logger.error("Playback controller object failed to launch, with Error (%s)", self.pbc[1])

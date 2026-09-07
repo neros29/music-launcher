@@ -83,6 +83,7 @@ class SendCmd:
                         logger.debug("request id %s response received with error value '%s'", cmd_id, response[1])
                         return response
                     else:
+                        logger.debug("mpv sent %s", cmd_id, response[1])
                         self.events.append(data)
                         continue
                 except json.JSONDecodeError as e:

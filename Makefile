@@ -49,6 +49,7 @@ install: all
 	rm -rf $(INSTALL_DIR)/src $(INSTALL_DIR)/include
 	cp -r src $(INSTALL_DIR)/
 	cp -r include $(INSTALL_DIR)/
+	cp -r conf $(INSTALL_DIR)/
 	
 	@echo "Writing dynamic execution wrapper to $(BIN_DIR)/$(APP_NAME)..."
 	

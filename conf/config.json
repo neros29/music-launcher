@@ -1,0 +1,32 @@
+{
+    "version": 1,
+    "disable_existing_loggers": false,
+    "formatters": {
+        "standard": {
+            "format": "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+        }
+    },
+    "handlers": {
+        "file_handler": {
+            "class": "logging.FileHandler",
+            "formatter": "standard",
+            "filename": "logs/debug.log"
+        }
+    },
+    "loggers": {
+        "app": {
+            "level": "INFO",
+            "propagate": true
+        },
+        "__main__": {
+            "level": "INFO",
+            "propagate": true
+        }
+    },
+    "root": {
+        "level": "WARNING",
+        "handlers": [
+            "file_handler"
+        ]
+    }
+}
