@@ -1,27 +1,32 @@
-from langdef import type_keywords, operator_keywords
-from playBackController import PlayBackController
-from dbQuery import Playable, Query, Playlist
-from events import Events, Event
-from lexer import Lexer, token_types
 from threading import Thread, Lock
 from typing import List, Optional
-from inputWidget import Token
-from parser import Parser
-from config import Config
-from ui import Ui
 from enum import Enum, auto
+import traceback
 import logging
 import wcwidth
 import time
 import os
 import logging
 
+from config import Config
+from playBackController import PlayBackController
+from dbQuery import Playable, Query, Playlist
+from events import Events, Event
+from langdef import type_keywords, operator_keywords
+from lexer import Lexer, token_types
+from parser import Parser
+from inputWidget import Token
+from ui import Ui
+
 
 logger = logging.getLogger(__name__)
+class PlayBackControllerException(Exception):
+    def __init__(self, *args: object) -> None:
+        super().__init__(*args)
 
 class Main:
     def __init__(self, config: Config) -> None:
-        logger.info("Starting init")
+        logger.info("Starting initialization")
         self.config = config
         logging.getLogger('thefuzz').setLevel(logging.ERROR)
         self.running = True
@@ -48,7 +53,7 @@ class Main:
         self.options = None
         self.old_options = None
         self.old_list_text = []
-        self.input_events = Events(self.ui.search_bar.surface)
+        self.input_events = Events(self.ui.search_bar_surf)
 
         self.play_type = "song"
         self.curser_index = 0
@@ -154,6 +159,7 @@ class Main:
         if done:
             self.options = results
             self.finished = True
+
     def _sanitize_string(self, s: str):
         import string
         for i in string.whitespace:
@@ -218,10 +224,8 @@ class Main:
 
         with self.pbc_lock:
             if self.pbc[1] != "success" or self.pbc[0] is None: 
-                # NOTE: This should eventually print the error message to stdout since it's fatal
                 logger.error("Playback controller object failed to launch, with Error (%s)", self.pbc[1])
-                self.running = False
-                return
+                raise PlayBackControllerException(f"Playback controller object failed to launch, with Error ({self.pbc[1]})")
             pbc = self.pbc[0]
             if self.play_type == "append":
                 self.append = False
@@ -260,7 +264,8 @@ class Main:
             self.text += "'"
 
 
-    def events(self, keys: List[tuple[Event, Optional[str]]]):
+    def events(self):
+        keys = self.input_events.get_events()
         for key in keys:
             if key[0] == Event.PRINTABLE:
                 logger.debug("Received key '%s' calling Main._add_character", key[1])
@@ -271,7 +276,7 @@ class Main:
                 self.special_keys[key[0]]()
 
     def draw_text(self):
-        if self.old_text == self.text and self.old_curser_index == self.curser_index: 
+        if self.old_text == self.text: 
             return self.old_tokens
         tokens = []
         for token in self.lexer.lex(self.text):
@@ -301,41 +306,46 @@ class Main:
             self.replace = ""
         ch = " "
         self.old_tokens = tokens
-        self.old_curser_index = self.curser_index
+        self.old_text = self.text
         return tokens
 
-    def run(self):
+    def smart_sleep(self, last_frame):
         frame_time = 1 / self.frame_rate
+
+        # give the remaining time to get_options
+        now = time.perf_counter()
+        elapsed = now - last_frame
+        if elapsed < frame_time:
+            self.get_options(now + (frame_time - elapsed))
+
+        # sleep remaining amount if get_options ends early
+        new_now = time.perf_counter()
+        elapsed = new_now - last_frame
+        if elapsed < frame_time:
+            time.sleep(frame_time - elapsed)
+        return time.perf_counter()
+
+    def run(self):
         last_frame = time.perf_counter()
-        max_ui_time = 0
-        max_options_time = 0
         os.system("clear")
         logger.info("Starting main loop")
-        while self.running:
-            try:
-                text = self.draw_text()
-                self.ui.update((text, (self.curser_index, 0)), (self.draw_list, self.selected))
-                keys = self.input_events.get_events()
-                self.events(keys)
+        error = None
+        try:
+            while self.running:
+                try:
+                    self.ui.update((self.draw_text(), (self.curser_index, 0)), (self.draw_list, self.selected))
+                    self.events()
 
-                # give the remaining time to get_options
-                now = time.perf_counter()
-                elapsed = now - last_frame
-                max_ui_time = max(max_ui_time, elapsed)
-                if elapsed < frame_time:
-                    self.get_options(now + (frame_time - elapsed))
-                # sleep remaining amount if get_options ends early
-                new_now = time.perf_counter()
-                max_options_time = max(max_options_time, new_now - now)
-                elapsed = new_now - last_frame
-                if elapsed < frame_time:
-                    time.sleep(frame_time - elapsed)
-                last_frame = time.perf_counter()
-
-            except KeyboardInterrupt:
-                break
-        self.t.join()
-        os.system("clear")
-        print(max_ui_time)
-        print(max_options_time)
+                    last_frame = self.smart_sleep(last_frame)
+                except KeyboardInterrupt:
+                    break
+        except Exception as e:
+            error = traceback.format_exc();
+            logger.exception("Exception caught in main thread: ")
+        finally:
+            self.t.join()
+            os.system("clear")
+            if error is not None:
+                print("Program crashed with error:")
+                print(error)
 
