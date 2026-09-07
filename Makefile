@@ -78,4 +78,10 @@ debug:
 	@# Use && to ensure cmake runs INSIDE the build directory
 	cd include/tuilib/build && cmake .. && make
 
-.PHONY: all install uninstall debug $(TUI)
+offline:
+	@# Create build directory if it doesn't exist
+	rm -rf include/tuilib/build
+	mkdir -p include/tuilib/build
+	@# Use && to ensure cmake runs INSIDE the build directory
+	cd include/tuilib/build && cmake .. && make
+.PHONY: all install uninstall debug offline $(TUI)
