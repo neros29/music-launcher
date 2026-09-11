@@ -10,6 +10,7 @@ import logging
 
 from config import Config
 from playBackController import PlayBackController
+from editor import Editor
 from dbQuery import Playable, Query, Playlist
 from events import Events, Event
 from langdef import type_keywords, operator_keywords
@@ -45,34 +46,25 @@ class Main:
         self.parser = Parser()
         self.lexer = Lexer()
         self.ui = Ui(self.fg, self.bg, self.surface_bg)
-        self.text: str = ""
-        self.old_text: str = ""
-        self.replace: str = ""
 
-        self.old_tokens = []
         self.options = None
         self.old_options = None
         self.old_list_text = []
         self.input_events = Events(self.ui.search_bar_surf)
+        self.editor = Editor(self.ui.search_bar.get_size(), self.syntax_colors, self.bg)
 
         self.play_type = "song"
-        self.curser_index = 0
-        self.old_curser_index = 0
         self.selected = 0
         self.frame_rate = 30
         self.new_key = True
         self.finished = False
         self.saved_ast = None
-
         self.special_keys = {
-                Event.BACKSPACE: self._backspace,
-                Event.LEFT: self._move_left,
-                Event.RIGHT: self._move_right,
-                Event.ENTER: self._handle_enter,
                 Event.DOWN: self._move_down,
                 Event.UP: self._move_up,
-                Event.TAB: self._replace,
+                Event.ENTER: self._handle_enter
             }
+
 
     def _get_theme(self):
         syntax = self.config.config["theme"]["syntax"]
@@ -83,6 +75,7 @@ class Main:
             token_types.OP: syntax["OP"],  
             token_types.L_OP: syntax["SCOPE"],
             token_types.R_OP: syntax["SCOPE"],
+            "AUTO_COMPLETE": syntax["AUTO_COMPLETE"],
         }
         return self.config.config["theme"]["foreground"], self.config.config["theme"]["background"], self.config.config["theme"]["surface_bg"]
 
@@ -94,25 +87,8 @@ class Main:
             except Exception as e:
                 self.pbc = (None, str(e))
 
-
-    def _replace(self):
-        if self.replace != "":
-            token = self.lexer.split_string(self.text)
-            self.text = self.text[:-len(token[-2].value)]
-            self.text += self.replace
-            self.curser_index = len(self.text)
-
-    def _move_down(self):
-        if self.options is not None:
-            self.selected = min(len(self.options.playable) -1, self.selected + 1)
-        elif self.old_options is not None:
-            self.selected = min(len(self.old_options.playable) -1, self.selected + 1)
-
-    def _move_up(self):
-        self.selected = max(0, self.selected - 1)
-
     def _handle_enter(self):
-        if self.text == "/exit":
+        if self.editor.text == "/exit":
             self.running = False
             return 
         if self.options is not None and len(self.options.playable) > 0:
@@ -126,25 +102,19 @@ class Main:
             self.play(songs)
             self.running = False
 
+    def _move_down(self):
+        if self.options is not None:
+            self.selected = min(len(self.options.playable) -1, self.selected + 1)
+        elif self.old_options is not None:
+            self.selected = min(len(self.old_options.playable) -1, self.selected + 1)
 
-
-    def _move_left(self):
-        self.curser_index = max(0, self.curser_index - 1)
-
-    def _move_right(self):
-        self.curser_index = min(len(self.text), self.curser_index + 1)
-
-    def _backspace(self):
-        secound = self.text[self.curser_index:]
-        first = self.text[:max(0, self.curser_index - 1)]
-        self.text = first + secound
-        self.curser_index = max(0, self.curser_index - 1)
-        self.new_key = True
+    def _move_up(self):
+        self.selected = max(0, self.selected - 1)
 
     def get_options(self, time_left):
         if self.new_key:
             self.finished = False
-            tokens = self.lexer.lex(self.text)
+            tokens = self.lexer.lex(self.editor.text)
             ast = self.parser.parse(tokens)
             self.saved_ast = ast
             if ast is None:
@@ -159,6 +129,7 @@ class Main:
         if done:
             self.options = results
             self.finished = True
+
 
     def _sanitize_string(self, s: str):
         import string
@@ -250,64 +221,20 @@ class Main:
                     if response[1] != 'success':
                         logger.warning("Replace command failed with response '%s' ", response[0])
 
-    def _add_character(self, key):
-        first = self.text[:self.curser_index]
-        secound = key
-        third = self.text[self.curser_index:]
-        self.text = first + secound + third 
-        self.curser_index += 1
-        if key == "(" and self.curser_index == len(self.text):
-            self.text += ")"
-        if key == '"' and self.curser_index == len(self.text):
-            self.text += '"'
-        if key == "'" and self.curser_index == len(self.text):
-            self.text += "'"
 
 
-    def events(self):
-        keys = self.input_events.get_events()
+    def events(self, keys):
+        new_keys = []
         for key in keys:
             if key[0] == Event.PRINTABLE:
-                logger.debug("Received key '%s' calling Main._add_character", key[1])
-                self._add_character(key[1])
                 self.new_key = True
-            else:
+                new_keys.append(key)
+            elif self.special_keys.get(key[0]):
                 logger.debug("Received special key '%s' calling Main.'%s'", key[0], self.special_keys[key[0]].__name__)
                 self.special_keys[key[0]]()
-
-    def draw_text(self):
-        if self.old_text == self.text: 
-            return self.old_tokens
-        tokens = []
-        for token in self.lexer.lex(self.text):
-            if not token.virtual:
-                for ch in token.value:
-                    tokens.append(Token(self.syntax_colors[token.token_type], self.bg, ch))
-        
-        last_token = self.lexer.split_string(self.text)
-        key_word = ""
-        all_words = {}
-        all_words.update(type_keywords)
-
-        all_words.update(operator_keywords)
-        for type_keyword in all_words:
-            if len(last_token[-2].value) > 1:
-                if type_keyword.startswith(last_token[-2].value):
-                    key_word = type_keyword
-                    break
-        if key_word != "":
-            if key_word in type_keywords:
-                self.replace = f"{key_word}: "
-            elif key_word in operator_keywords:
-                self.replace = f"{key_word} "
-            for ch in self.replace[len(last_token[-2].value):]:
-                tokens.append(Token(self.config.config["theme"]["syntax"]["AUTO_COMPLETE"], self.bg, ch))
-        else:
-            self.replace = ""
-        ch = " "
-        self.old_tokens = tokens
-        self.old_text = self.text
-        return tokens
+            else:
+                new_keys.append(key)
+        return new_keys
 
     def smart_sleep(self, last_frame):
         frame_time = 1 / self.frame_rate
@@ -333,8 +260,10 @@ class Main:
         try:
             while self.running:
                 try:
-                    self.ui.update((self.draw_text(), (self.curser_index, 0)), (self.draw_list, self.selected))
-                    self.events()
+                    self.ui.update((self.editor.draw_text(), (self.editor.curser_index, 0)), (self.draw_list, self.selected))
+                    keys = self.input_events.get_events()
+                    
+                    self.editor.events(self.events(keys))
 
                     last_frame = self.smart_sleep(last_frame)
                 except KeyboardInterrupt:

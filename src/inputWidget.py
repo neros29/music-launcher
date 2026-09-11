@@ -30,6 +30,9 @@ class InputWidget:
         self.width, self.hight = self.surface.size()
         self.current_surf: List[Optional[Token]] = [None for _ in range(self.width) for _ in range(self.hight)]
 
+    def get_size(self):
+        return self.width, self.hight
+
     def render_text(self, tokens: List[Token], curser_pos: tuple[int, int]):           
         token_idx = 0
         for y in range(self.hight):
