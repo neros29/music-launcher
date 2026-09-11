@@ -26,7 +26,7 @@ class SendCmd:
 
     def _start_client(self):
         wait_time = 0.5
-        retrys = 2
+        retrys = 5
         try:
             self.client = self._init_socket()
             logger.debug("Successfully connected to socket.")
@@ -34,11 +34,6 @@ class SendCmd:
             logger.warning("Failed to connect to socket (%s). Trying to start mpv.", e)
             self._start_mpv()
             for i in range(retrys):
-                if not Path(self.ipc_file).exists():
-                    time.sleep(wait_time)
-                    if i >= retrys:
-                        raise FileNotFoundError("Ipc file was never created. Are you sure your ipc file in your mpv command matches the socket_file in your config")
-                    continue
                 try:
                     self.client = self._init_socket()
                     logger.info("After starting mpv connected to socket after %s/%s trys.", i, retrys)
@@ -47,6 +42,9 @@ class SendCmd:
                     logger.debug("Failed to connect to socket after starting mpv %s/%s times. Will try again in %s seconds.", i, retrys, wait_time)
                     time.sleep(wait_time)
                     continue
+
+            if not Path(self.ipc_file).exists():
+                raise FileNotFoundError(f"IPC file '{self.ipc_file}' was never created by mpv.")
             raise ConnectionError("Failed to start client. Possible causes, mpv not running, incorrect ipc file.")
         except Exception:
             logger.exception("Socket connection failed during initialization")
