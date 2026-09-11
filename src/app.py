@@ -55,7 +55,7 @@ class Main:
 
         self.play_type = "song"
         self.selected = 0
-        self.frame_rate = 30
+        self.frame_rate = 60
         self.new_key = True
         self.finished = False
         self.saved_ast = None
