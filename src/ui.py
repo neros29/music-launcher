@@ -25,6 +25,8 @@ class Ui:
         self.search_bar, self.search_bar_surf = self._init_inputWidget()
         self.song_list, self.song_list_surf = self._init_listWidget()
 
+        self.root_surf = self.tui.append([2, 2], [-5, -5], " ", 500)
+
     def _init_inputWidget(self):
         background = self.tui.append(self.search_bar_size, self.search_bar_offset, " ", 50)
         background.fill_bg(*self.surface_bg)
@@ -44,8 +46,8 @@ class Ui:
         selecter_surface.fill_bg(*self.surface_bg)
         return ListWidget(surface, selecter_surface, self.fg, self.bg), surface
 
-    def update(self, search_values, list_values):
-        self.song_list.update(*list_values)
-        self.search_bar.render_text(*search_values)
+    def update(self):
+        # self.song_list.update(*list_values)
+        # self.search_bar.render_text(*search_values)
         self.tui.update_screen()
 

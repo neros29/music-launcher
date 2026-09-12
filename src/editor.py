@@ -1,16 +1,22 @@
-from inputWidget import Token as iToken
+from atexit import register
+from inputWidget import InputWidget, Token as iToken
 from langdef import type_keywords, operator_keywords
 from lexer import Token, Tokens, Lexer
-from events import Event
+from pytui import Surface
 from typing import Optional
 from logging import getLogger
+import string
 
 logger = getLogger(__name__)
 
 class Editor:
-    def __init__(self, size: tuple, syntax_colors: dict, bg, inital_cursor_pos: Optional[list] = None) -> None:
-        self.width, self.height = size
-        self.bg = bg
+    def __init__(self, input_widget: InputWidget, syntax_colors: dict, inital_cursor_pos: Optional[list] = None) -> None:
+        self.input_widget = input_widget
+        self.surface = self.input_widget.surface
+
+        self.width, self.height = self.input_widget.get_size()
+        self.bg = self.input_widget.bg
+
         self.syntax_colors = syntax_colors
         self.lexer = Lexer()
         self.text: str = ""
@@ -18,12 +24,22 @@ class Editor:
         self.replace: str = ""
         self.curser_index = 0
         self.old_curser_index = 0
+        self.new_key = False
         self.special_keys = {
-                Event.BACKSPACE: self._backspace,
-                Event.LEFT: self._move_left,
-                Event.RIGHT: self._move_right,
-                Event.TAB: self._replace,
+                chr(127): self._backspace,
+                "Left": self._move_left,
+                "Right": self._move_right,
+                chr(0x09): self._replace,
             }
+        self.keys = self._register_keys()
+
+    def _register_keys(self):
+        keys = list(string.printable)
+        s_chs = []
+        for s_ch in self.special_keys:
+            s_chs.append(s_ch)
+        self.surface.register_keys(s_chs + keys)
+        return keys
 
     def draw_text(self):
         tokens = []
@@ -90,12 +106,19 @@ class Editor:
         self.curser_index = max(0, self.curser_index - 1)
         self.new_key = True
 
-    def events(self, events):
-        for key in events:
-            if key[0] == Event.PRINTABLE:
-                logger.debug("Received key '%s' calling Main._add_character", key[1])
-                self._add_character(key[1])
+    def events(self):
+        for key in self.special_keys:
+            if self.surface.get_event(key):
+                logger.debug("Received special key '%s' calling Editor.'%s'", key, self.special_keys[key].__name__)
+                self.special_keys[key]()
+        for key in self.keys:
+            if self.surface.get_event(key):
+                logger.debug("Received key '%s' calling Editor._add_character", key)
+                self._add_character(key)
                 self.new_key = True
-            else:
-                logger.debug("Received special key '%s' calling Main.'%s'", key[0], self.special_keys[key[0]].__name__)
-                self.special_keys[key[0]]()
+
+    def update(self):
+        self.events()
+        tokens = self.draw_text()
+        self.input_widget.render_text(tokens, (self.curser_index, 0))
+        return self.text

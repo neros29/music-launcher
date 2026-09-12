@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Optional
 from pytui import Label, Surface
             
 
@@ -12,15 +12,23 @@ class ListWidget:
         self.lab = Label(self.list_surface, "", [0, 0])
         self.bottom = 0
         self.margin = 5
+        self.generator = None
+        self.width, self.height = self.list_surface.size()
 
 
-    def _render(self, generater, selected):
+    def set_genrator(self, genrator):
+        self.generator = genrator
+
+
+    def _render(self, selected):
+        if self.generator is None:
+            raise ValueError("You must provided a generator for your list.")
         if self.bottom != 0 and selected <= self.bottom + self.margin: # if selected is margin from the top
             self.bottom = selected - self.margin
         elif selected >= (self.bottom + self.list_surface.size()[1]) - self.margin: # if selected is margin from the bottom
             self.bottom = selected - (self.list_surface.size()[1] - self.margin)
         string = "" 
-        string += "\n".join(generater(self.bottom, self.bottom + self.list_surface.size()[1]))
+        string += "\n".join(self.generator(self.bottom, self.bottom + self.list_surface.size()[1], self.width))
         diff = self.list_surface.size()[1] - len(string.split("\n"))
         for _ in range(diff):
             string += " " * self.list_surface.size()[0] + "\n"
@@ -30,7 +38,10 @@ class ListWidget:
     def _move_selected(self, selected):
         self.selector_surface.set_offset(self.list_surface.offset()[0], self.list_surface.offset()[1] + selected + 1)
 
-    def update(self, generater, selected=0):
-        self._render(generater, selected)
+    def update(self, selected=0):
+        self._render(selected)
         self._move_selected(selected - self.bottom)
+
+    def get_size(self):
+        return self.width, self.height
 
