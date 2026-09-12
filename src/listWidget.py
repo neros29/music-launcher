@@ -36,6 +36,7 @@ class ListWidget:
         self.lab.update()
 
     def _move_selected(self, selected):
+        selected = selected - self.bottom
         self.selector_surface.set_offset(self.list_surface.offset()[0], self.list_surface.offset()[1] + selected + 1)
 
     def update(self, selected):

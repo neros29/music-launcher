@@ -31,19 +31,20 @@ class ListSelection:
         self.surface.register_keys(s_chs)
 
     def _move_down(self):
-        self.selected = min(self.list_widget.height, self.selected + 1)
+        if self.options is not None:
+            self.selected = min(len(self.options.playable) -1, self.selected + 1)
 
     def _move_up(self):
         self.selected = max(0, self.selected - 1)
 
     def events(self):
-        results = False
+        event = False
         for key in self.special_keys:
             if self.surface.get_event(key):
                 logger.debug("Received special key calling ListSelection.'%s'", self.special_keys[key].__name__)
                 self.special_keys[key]()
-                results = True | results
-        return results
+                event = True
+        return event
 
     def update(self, list_options: Playable):
         if self.options is None or self.events() or list_options != self.options:

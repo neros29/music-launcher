@@ -78,7 +78,7 @@ class Main:
                 self.options = None
                 return
             results, done = self.query.query(ast, time_left, restart=True)
-            logger.debug("Query restarting for %s with results: %s, and done: %s", time_left, results, done)
+            logger.debug("Query restarting for %s and got results: %s, and done: %s", time_left - time.perf_counter(), results, done)
             self.update = False
         elif self.finished:
             return
@@ -87,7 +87,7 @@ class Main:
                 self.options = None
                 return
             results, done = self.query.query(self.saved_ast, time_left)
-            logger.debug("Query ran for %s with results: %s, and done: %s", time_left, results, done)
+            logger.debug("Query ran for %s sec and got results: %s, and done: %s", time_left - time.perf_counter(), results, done)
         if done:
             self.options = results
             self.finished = True
