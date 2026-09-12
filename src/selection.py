@@ -32,7 +32,7 @@ class ListSelection:
 
     def _move_down(self):
         if self.options is not None:
-            self.selected = min(len(self.options.playable) -1, self.selected + 1)
+            self.selected = min(self.list_widget.height, self.selected + 1)
 
     def _move_up(self):
         self.selected = max(0, self.selected - 1)
@@ -45,14 +45,12 @@ class ListSelection:
 
     def update(self, list_options: Playable):
         self.options = list_options
-        logger.info("Self.options is %s", self.options.playable)
         self.events()
         self.list_widget.update(self.selected)
         if self.options is not None and len(self.options.playable) > 0:
-            index = max(min(len(self.options.playable)-1, self.selected), 0)
-            return self.options.get_playable(index)
-        else:
-            return None
+            if self.selected >= 0 and self.selected <= len(self.options.playable) -1:
+                return self.options.get_playable(self.selected)
+        return None
 
     def _sanitize_string(self, s: str):
         import string

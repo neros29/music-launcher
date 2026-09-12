@@ -117,7 +117,6 @@ class Main:
                     self.ui.update()
                     self.text = self.editor.update()
                     if self.options is not None:
-                        logger.info("Options %s", self.options.playable)
                         self.selected = self.selector.update(self.options)
                         self.old_options = self.options
                     elif self.old_options is not None:

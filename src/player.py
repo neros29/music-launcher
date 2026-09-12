@@ -46,6 +46,7 @@ class Player:
             return True
         else:
             logger.info("Tried to hit enter when nothing was selected")
+            return False
 
     def play(self, songs):
         defualt_setup_comands = [
