@@ -81,17 +81,18 @@ class Editor:
             self.curser_index = len(self.text)
 
     def _add_character(self, key):
-        first = self.text[:self.curser_index]
-        secound = key
-        third = self.text[self.curser_index:]
-        self.text = first + secound + third 
-        self.curser_index += 1
-        if key == "(" and self.curser_index == len(self.text):
-            self.text += ")"
-        if key == '"' and self.curser_index == len(self.text):
-            self.text += '"'
-        if key == "'" and self.curser_index == len(self.text):
-            self.text += "'"
+        if len(self.text) < self.width - 1:
+            first = self.text[:self.curser_index]
+            secound = key
+            third = self.text[self.curser_index:]
+            self.text = first + secound + third 
+            self.curser_index += 1
+            if key == "(" and self.curser_index == len(self.text):
+                self.text += ")"
+            if key == '"' and self.curser_index == len(self.text):
+                self.text += '"'
+            if key == "'" and self.curser_index == len(self.text):
+                self.text += "'"
 
     def _move_left(self):
         self.curser_index = max(0, self.curser_index - 1)
