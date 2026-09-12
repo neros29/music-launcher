@@ -21,10 +21,10 @@ class Editor:
         self.lexer = Lexer()
         self.text: str = ""
         self.old_text: str = ""
+
         self.replace: str = ""
         self.curser_index = 0
         self.old_curser_index = 0
-        self.new_key = False
         self.special_keys = {
                 chr(127): self._backspace,
                 "Left": self._move_left,
@@ -32,6 +32,8 @@ class Editor:
                 chr(0x09): self._replace,
             }
         self.keys = self._register_keys()
+        tokens = self.draw_text()
+        self.input_widget.render_text(tokens, (self.curser_index, 0))
 
     def _register_keys(self):
         keys = list(string.printable)
@@ -69,8 +71,6 @@ class Editor:
         else:
             self.replace = ""
         ch = " "
-        self.old_tokens = tokens
-        self.old_text = self.text
         return tokens
 
     def _replace(self):
@@ -105,21 +105,25 @@ class Editor:
         first = self.text[:max(0, self.curser_index - 1)]
         self.text = first + secound
         self.curser_index = max(0, self.curser_index - 1)
-        self.new_key = True
 
     def events(self):
+        event = False
         for key in self.special_keys:
             if self.surface.get_event(key):
-                logger.debug("Received special key '%s' calling Editor.'%s'", key, self.special_keys[key].__name__)
+                logger.debug("Received special key calling Editor.'%s'", self.special_keys[key].__name__)
                 self.special_keys[key]()
+                event = True
         for key in self.keys:
             if self.surface.get_event(key):
                 logger.debug("Received key '%s' calling Editor._add_character", key)
                 self._add_character(key)
-                self.new_key = True
+                event = True
+        return event
 
     def update(self):
-        self.events()
-        tokens = self.draw_text()
-        self.input_widget.render_text(tokens, (self.curser_index, 0))
+        if self.events():
+            logger.debug("New event received updating")
+            tokens = self.draw_text()
+            self.input_widget.render_text(tokens, (self.curser_index, 0))
+            self.old_text = self.text
         return self.text

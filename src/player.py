@@ -86,7 +86,7 @@ class Player:
     def events(self):
         for key in self.special_keys:
             if self.surface.get_event(key):
-                logger.debug("Received special key '%s' calling Editor.'%s'", key, self.special_keys[key].__name__)
+                logger.debug("Received special key calling Editor.'%s'", key, self.special_keys[key].__name__)
                 return self.special_keys[key]()
 
     def update(self, selected):

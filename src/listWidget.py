@@ -38,9 +38,9 @@ class ListWidget:
     def _move_selected(self, selected):
         self.selector_surface.set_offset(self.list_surface.offset()[0], self.list_surface.offset()[1] + selected + 1)
 
-    def update(self, selected=0):
+    def update(self, selected):
         self._render(selected)
-        self._move_selected(selected - self.bottom)
+        self._move_selected(selected)
 
     def get_size(self):
         return self.width, self.height

@@ -47,6 +47,7 @@ class Main:
         self.selected = Optional[list]
         self.text = ""
         self.frame_rate = 60
+        self.update = False
 
         self.finished = False
         self.saved_ast = None
@@ -68,7 +69,7 @@ class Main:
 
 
     def get_options(self, time_left):
-        if self.editor.new_key:
+        if self.update:
             self.finished = False
             tokens = self.lexer.lex(self.text)
             ast = self.parser.parse(tokens)
@@ -77,7 +78,8 @@ class Main:
                 self.options = None
                 return
             results, done = self.query.query(ast, time_left, restart=True)
-            self.new_key = False
+            logger.debug("Query restarting for %s with results: %s, and done: %s", time_left, results, done)
+            self.update = False
         elif self.finished:
             return
         else:
@@ -115,7 +117,10 @@ class Main:
             while self.running:
                 try:
                     self.ui.update()
-                    self.text = self.editor.update()
+                    new_text = self.editor.update()
+                    if new_text != self.text:
+                        self.text = new_text
+                        self.update = True
                     if self.options is not None:
                         self.selected = self.selector.update(self.options)
                         self.old_options = self.options

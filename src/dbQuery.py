@@ -21,6 +21,13 @@ class Song:
     def get(self, key: str):
         return self.root.data[self.path][key]
 
+    def __eq__(self, value: object, /) -> bool:
+        if isinstance(value, Song):
+            return self.path == value.path
+        else:
+            return NotImplemented
+
+
 class Playable:
     def __init__(self, playable: List, playable_type: str) -> None:
         self.playable_type: str = playable_type
@@ -46,6 +53,15 @@ class Playable:
     def __iter__(self):
         for i in self.playable:
             yield i
+
+    def __eq__(self, value: object, /) -> bool:
+        if isinstance(value, Playable):
+            if value.playable_type == self.playable_type:
+                return self.playable == value.playable
+            else:
+                return False
+        else:
+            return NotImplemented
 
 class Playlist:
     def __init__(self, songs: List[Song], playlist_name: str, root_song: Optional[Song]) -> None:
@@ -89,10 +105,15 @@ class Playlist:
         if top_artists:
             return unformated[top_artists[0]]
         return ""
-
     def __iter__(self):
         for i in self.songs:
             yield i
+
+    def __eq__(self, value: object, /) -> bool:
+        if isinstance(value, Playlist):
+            return value.songs == self.songs
+        else:
+            return NotImplemented
 
 
 class Query:
