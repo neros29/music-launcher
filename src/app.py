@@ -131,10 +131,17 @@ class Main:
                     last_frame = self.smart_sleep(last_frame)
                 except KeyboardInterrupt:
                     break
+        except ChildProcessError as e:
+            error = f"Error starting mpv ({e})\nMake sure the 'player_cmd' is a valid command."
+            logger.error("Error starting mpv (%s)\nMake sure the 'player_cmd' is a valid command.", e)
+        except FileNotFoundError as e:
+            error = f"Error loading file ({e})\nPossible causes, 'socket_file' dose not match the socket file provided to mpv in 'player_cmd'."
+            logger.error("Error loading file (%s)\nPossible causes, 'socket_file' dose not match the socket file provided to mpv in 'player_cmd'.", e)
         except Exception as e:
             error = traceback.format_exc();
             logger.exception("Exception caught in main thread: ")
         finally:
+            self.player.exit()
             os.system("clear")
             if error is not None:
                 print("Program crashed with error:")

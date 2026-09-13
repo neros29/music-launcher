@@ -13,6 +13,7 @@ class SendCmd:
     def __init__(self, ipc_file: str, mpv_cmd) -> None:
         self.ipc_file = ipc_file
         self._mpv_cmd = mpv_cmd
+        self.mpv: Optional[subprocess.Popen] = None
         self._start_client()
         self.events = []
         self.id = 0
@@ -24,6 +25,11 @@ class SendCmd:
         client.settimeout(5.0)
         return client
 
+    def _mpv_is_running(self):
+        if self.mpv is None or self.mpv.poll() is not None:
+            return False
+        return True
+
     def _start_client(self):
         wait_time = 0.5
         retrys = 5
@@ -31,36 +37,50 @@ class SendCmd:
             self.client = self._init_socket()
             logger.debug("Successfully connected to socket.")
         except (FileNotFoundError, ConnectionRefusedError) as e:
-            logger.warning("Failed to connect to socket (%s). Trying to start mpv.", e)
-            self._start_mpv()
-            for i in range(retrys):
-                try:
-                    self.client = self._init_socket()
-                    logger.info("After starting mpv connected to socket after %s/%s trys.", i, retrys)
-                    return
-                except (FileNotFoundError, ConnectionRefusedError):
-                    logger.debug("Failed to connect to socket after starting mpv %s/%s times. Will try again in %s seconds.", i, retrys, wait_time)
-                    time.sleep(wait_time)
-                    continue
+            logger.warning("Failed to connect to socket (%s).", e)
+            if not self._mpv_is_running():
+                logger.warning("Mpv was not running, starting mpv.")
+                self._start_mpv()
+                for i in range(retrys):
+                    try:
+                        self.client = self._init_socket()
+                        logger.info("After starting mpv connected to socket after %s/%s trys.", i, retrys)
+                        return
+                    except (FileNotFoundError, ConnectionRefusedError):
+                        logger.debug("Failed to connect to socket after starting mpv %s/%s times. Will try again in %s seconds.", i, retrys, wait_time)
+                        time.sleep(wait_time)
+                        continue
 
             if not Path(self.ipc_file).exists():
                 raise FileNotFoundError(f"IPC file '{self.ipc_file}' was never created by mpv.")
-            raise ConnectionError("Failed to start client. Possible causes, mpv not running, incorrect ipc file.")
+
+            if not self._mpv_is_running():
+                if self.mpv is None or self.mpv.stderr is None:
+                    raise RuntimeError(f"This should not happen.")
+                if self.mpv.returncode == 0:
+                    raise ChildProcessError(f"Mpv exited with code (0) before connection could be established.")
+                raise ChildProcessError(f"Failed to start mpv with Exit code ({self.mpv.returncode}): '{self.mpv.stderr.read().strip()}'")
+
+            raise ConnectionError("Failed to start client connection with mpv.")
         except Exception:
             logger.exception("Socket connection failed during initialization")
             raise
 
     def _start_mpv(self):
+        if self._mpv_is_running(): 
+            raise ChildProcessError("Mpv is already running, and was asked to start it again.")
         use_shell = isinstance(self._mpv_cmd, str)
-        subprocess.Popen(
+        proccess = subprocess.Popen(
             self._mpv_cmd,
             shell=use_shell,
-            stdin=subprocess.DEVNULL,
             start_new_session=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
             close_fds=True
         )
+        self.mpv = proccess
 
-    def recv(self, cmd_id):
+    def recv(self, cmd_id) -> tuple[str, Optional[str]]:
         while True:
             response = b''
             while True:
@@ -144,7 +164,7 @@ class PlayBackController:
                         f.write(song + "\n")
         return str(file)
 
-    def play_song(self, songs: list[str], command: str, setup_commands: Optional[list[list]]=None) -> list:
+    def play_song(self, songs: list[str], command: str, setup_commands: Optional[list[list]]=None) -> list[tuple]:
         if setup_commands is None:
             setup_commands = []
         responses = []
@@ -163,8 +183,7 @@ class PlayBackController:
                 responses.append(self._cmd_runner.send(cmd))
         else:
             logging.warning("Unable to play song as file %s not found.", to_play)
-            responses.append(f"File {to_play} not found")
         return responses
 
     def exit(self):
-            self._cmd_runner.exit()
+        self._cmd_runner.exit()
