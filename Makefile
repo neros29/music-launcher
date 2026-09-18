@@ -68,6 +68,27 @@ uninstall:
 	rm -f $(BIN_DIR)/$(APP_NAME)
 	@echo "Uninstallation complete."
 
+update:
+	@echo "Updating $(APP_NAME) utilizing XDG standards..."
+	mkdir -p $(BIN_DIR)
+	mkdir -p $(INSTALL_DIR)/logs
+	
+	# Copy source code and include files over to XDG state location
+	rm -rf $(INSTALL_DIR)/src $(INSTALL_DIR)/include
+	cp -r src $(INSTALL_DIR)/
+	cp -r include $(INSTALL_DIR)/
+	cp -r conf $(INSTALL_DIR)/
+	
+	@echo "Writing dynamic execution wrapper to $(BIN_DIR)/$(APP_NAME)..."
+	
+	# Generate wrapper script pointing straight to the venv python and app source
+	@echo '#!/bin/bash' > $(BIN_DIR)/$(APP_NAME)
+	@echo 'cd $(INSTALL_DIR)' >> $(BIN_DIR)/$(APP_NAME)
+	@echo 'exec $(VENV_DIR)/bin/python $(INSTALL_DIR)/src/main.py "$$@"' >> $(BIN_DIR)/$(APP_NAME)
+	
+	chmod +x $(BIN_DIR)/$(APP_NAME)
+	@echo "Update successful!"
+
 debug:
 	@# Check if the directory already exists so we don't try to clone twice
 	@if [ ! -d "include/tuilib" ]; then \
@@ -85,4 +106,4 @@ offline:
 	mkdir -p include/tuilib/build
 	@# Use && to ensure cmake runs INSIDE the build directory
 	cd include/tuilib/build && cmake .. && make
-.PHONY: all install uninstall debug offline $(TUI)
+.PHONY: all install uninstall debug offline $(TUI) update
