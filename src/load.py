@@ -121,6 +121,11 @@ class Load:
                 name = path.split("/")[-1].strip()
         return (results, name)
 
+    def _clean_playlist(self, name):
+        for path, song in self.data["music"].items():
+            if name in song["playlists"]:
+                del self.data["music"][path]["playlists"][name]
+
     def get_m3u(self):
         procesed = 0
         music = self.data["music"]
@@ -132,23 +137,39 @@ class Load:
                 for file in directory[2]:
                     path = os.path.join(directory[0], file)
                     if file.lower().endswith((".m3u")):
-                        if path in cache["m3u"]:
-                            continue
-                        with open(path, "r") as f:
-                            data = f.read()
+                        size = os.path.getsize(path)
+                        do_cache = True
+                        if cache["m3u"].get(path) is None or cache["m3u"][path] != size:
+                            with open(path, "r") as f:
+                                data = f.read()
                             playlist, name = self.parse_m3u(data, path)
+                            if cache["m3u"].get(path) != size:
+                                self._clean_playlist(name)
                             procesed += 1
                             for index, song in enumerate(playlist):
                                 orig_path = cache["duplicates"].get(song)
                                 if music.get(song):
                                     music[song]["playlists"][name] = index
-                                    cache["m3u"][path] = True
                                 elif orig_path:
-                                    self.data["music"][orig_path]["playlists"][name] = index
-                                    cache["m3u"][path] = True
+                                    if music.get(orig_path) is not None:
+                                        self.data["music"][orig_path]["playlists"][name] = index
+                                    else:
+                                        del cache["duplicates"][song]
+                                        do_cache = False
+                                        print(f"Problem with song {song}")
                                 else:
-                                    print(f"faild to find {song} form in {path}")
+                                    print(f"faild to find {song} from in {path}")
+                        if do_cache:
+                            cache["m3u"][path] = size
             print(f"proccesed {procesed} m3u files")
+
+    def _clean_m3us(self):
+        dead = []
+        for file in self.data["cache"]["m3u"]:
+            if not os.path.exists(file):
+                dead.append(file)
+        for file in dead:
+            del self.data["cache"]["m3u"][file]
 
     def _clean_db(self):
         songs = {}
@@ -175,6 +196,7 @@ class Load:
                         orig_data[playlist] = song_data["playlists"][playlist]
                 self.data["cache"]["duplicates"][song] = orig
             del self.data["music"][song]
+        self._clean_m3us()
         print(f"deleted {len(dups)}")
     
     def fill_db(self):
