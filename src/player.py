@@ -21,7 +21,6 @@ class Player:
         self.pbc: tuple[Optional[PlayBackController], Optional[Exception]] = (None, None)
         self.t = Thread(target=self._start_pbc, daemon=True)
         self.t.start()
-        self.play_type = "song"
 
     def _register_keys(self):
         s_chs = []
@@ -44,7 +43,9 @@ class Player:
             logger.info("Tried to hit enter when nothing was selected")
             return False
 
-    def play(self, songs):
+    def play(self, selected):
+        songs = selected[0]
+        play_type = selected[1]
         defualt_setup_comands = [
                 ["set_property", "loop-file", "no"]
                 ]
@@ -62,10 +63,12 @@ class Player:
                 raise self.pbc[1]
             assert self.pbc[0] is not None, "This should not be None"
             pbc = self.pbc[0]
-            if commands.get(self.play_type):
-                command = commands[self.play_type]
+            if commands.get(play_type):
+                command = commands[play_type]
             else:
+                logger.debug("Using defualt path. command: %s", play_type)
                 command = commands["defualt"]
+            logger.debug("Sending command. command: %s, setup-command: %s", command[0], command[1])
             cmd_results = pbc.play_song(songs, command[0], command[1])
             for cmd in cmd_results:
                 if cmd[1] != "success":

@@ -53,7 +53,7 @@ class ListSelection:
             self.list_widget.update(self.selected)
         if self.options is not None and len(self.options.playable) > 0:
             if self.selected >= 0 and self.selected <= len(self.options.playable) -1:
-                return self.options.get_playable(self.selected)
+                return self.options.get_playable(self.selected), self.options.get_playable_type()
         return None
 
     def _sanitize_string(self, s: str):
@@ -67,7 +67,6 @@ class ListSelection:
         assert self.options is not None, "This should not happen"
         results: Playable = self.options
 
-        self.play_type = results.get_playable_type()
         first_row = (width // 2) - 5
         secound_row = (width // 3) - 5
         third_row = width - (first_row + secound_row)
