@@ -98,12 +98,6 @@ debug:
 	rm -rf include/tuilib/build
 	mkdir -p include/tuilib/build
 	@# Use && to ensure cmake runs INSIDE the build directory
-	cd include/tuilib/build && cmake .. && make
+	cd include/tuilib/build && cmake -DPython3_EXECUTABLE=$(VENV_DIR)/bin/python .. && make
 
-offline:
-	@# Create build directory if it doesn't exist
-	rm -rf include/tuilib/build
-	mkdir -p include/tuilib/build
-	@# Use && to ensure cmake runs INSIDE the build directory
-	cd include/tuilib/build && cmake .. && make
-.PHONY: all install uninstall debug offline $(TUI) update
+.PHONY: all install uninstall debug $(TUI) update

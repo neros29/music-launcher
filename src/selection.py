@@ -59,7 +59,7 @@ class ListSelection:
     def _sanitize_string(self, s: str):
         import string
         for i in string.whitespace:
-            s.replace(i, " ")
+            s = s.replace(i, " ")
         return s
 
     def draw_list(self, start, end, width):

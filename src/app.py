@@ -77,8 +77,8 @@ class Main:
             if ast is None:
                 self.options = None
                 return
-            results, done = self.query.query(ast, time_left, restart=True)
-            logger.debug("Query restarting for %s and got results: %s, and done: %s", time_left - time.perf_counter(), results, done)
+            results = self.query.query(ast, time_left, restart=True)
+            logger.debug("Query restarting with %s and got results: %s", time_left, results)
             self.update = False
         elif self.finished:
             return
@@ -86,9 +86,9 @@ class Main:
             if self.saved_ast is None:
                 self.options = None
                 return
-            results, done = self.query.query(self.saved_ast, time_left)
-            logger.debug("Query ran for %s sec and got results: %s, and done: %s", time_left - time.perf_counter(), results, done)
-        if done:
+            results = self.query.query(self.saved_ast, time_left)
+            logger.debug("Query given %s sec and got results: %s", time_left, results)
+        if results:
             self.options = results
             self.finished = True
 
@@ -99,7 +99,7 @@ class Main:
         now = time.perf_counter()
         elapsed = now - last_frame
         if elapsed < frame_time:
-            self.get_options(now + (frame_time - elapsed))
+            self.get_options(max((frame_time - elapsed), 0.001))
 
         # sleep remaining amount if get_options ends early
         new_now = time.perf_counter()

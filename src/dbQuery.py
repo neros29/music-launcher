@@ -1,14 +1,18 @@
 from pathlib import Path
-from typing import List, Optional
+from typing import Optional
+from worker import Worker
 from rapidfuzz import fuzz
 from parser import Pair, Parser
 from random import shuffle
 from lexer import Lexer
 import time
 import json
+from logging import getLogger
+
+logger = getLogger(__name__)
 
 class Song:
-    def __init__(self, song_path: str, score_list: List, root: 'Query', query: List[dict]) -> None:
+    def __init__(self, song_path: str, score_list: list, root: 'Query', query: list[dict]) -> None:
         self.root = root
         self.query = query
         self.path = song_path
@@ -29,9 +33,9 @@ class Song:
 
 
 class Playable:
-    def __init__(self, playable: List, playable_type: str) -> None:
+    def __init__(self, playable: list, playable_type: str) -> None:
         self.playable_type: str = playable_type
-        self.playable: List = playable
+        self.playable: list = playable
         self.type: str = "playlist" if len(playable) > 0 and isinstance(playable[0], Playlist) else "song"
         self.sort()
 
@@ -64,10 +68,10 @@ class Playable:
             return NotImplemented
 
 class Playlist:
-    def __init__(self, songs: List[Song], playlist_name: str, root_song: Optional[Song]) -> None:
+    def __init__(self, songs: list[Song], playlist_name: str, root_song: Optional[Song]) -> None:
         self.name = playlist_name
         self.root_song = root_song
-        self.songs: List[Song] = songs
+        self.songs: list[Song] = songs
         self.artist = self._get_artist()
         self._sort_song()
         self.score = self._get_score()
@@ -115,15 +119,10 @@ class Playlist:
         else:
             return NotImplemented
 
-
 class Query:
     def __init__(self, db_path) -> None:
         self.db_path: Path = db_path if isinstance(db_path, Path) else Path(db_path)
         self.data = self._load_file()
-        self.generator = None
-        self.query_playlist_gen = None
-        self.stop_time = None
-        self.last_query = None
         self.funcs = {
                 "fuzz": self._fuzz,
                 "re": self._glob,
@@ -136,6 +135,42 @@ class Query:
                 }
         self._fuzz_cache = {}
         self._playlist_cache = {}
+        self._query_worker = Worker(self._query)
+
+        self.options = {
+                "songs": {
+                    "funcs": [],
+                    "key_word": "songs",
+                    },
+                "loop": {
+                    "funcs": [],
+                    "key_word": "loop",
+                    },
+                "append": {
+                    "funcs": [],
+                    "key_word": "append",
+                    },
+                "insert-next": {
+                    "funcs": [],
+                    "key_word": "insert-next",
+                    },
+                "append-playlist": {
+                    "funcs": [self.get_playlists],
+                    "key_word": "append",
+                    },
+                "all-matches": {
+                    "funcs": [self.get_playlists, self.shuffle_playlists],
+                    "key_word": "playlists",
+                    },
+                "shuffled-playlists": {
+                    "funcs": [self.get_playlists, self.shuffle_playlists],
+                    "key_word": "playlists",
+                    },
+                "default": {
+                    "funcs": [self.get_playlists],
+                    "key_word": "playlists",
+                    },
+                }
 
     def _load_file(self):
         if not self.db_path.is_file():
@@ -200,7 +235,7 @@ class Query:
 
         return float(pattern_idx == p_len)
 
-    def _score_song(self, song: str, querys: List[dict]):
+    def _score_song(self, song: str, querys: list[dict]):
         result = False
         score = []
         song_data = self.data[song]
@@ -237,13 +272,12 @@ class Query:
         total = 0
         for song in self.data:
             if total % 100 == 0:
-                if time.perf_counter() >= self.stop_time:
-                    yield (results, False)
+                yield 
             result = self._score_song(song, querys)
             if result[0]:
                 results.append(Song(song, result[1], self, querys))
             total += 1
-        yield (results, True)
+        return results
 
     def _compile_ast(self, ast: Pair, i_op = None):
         if ast.data_type != "scope":
@@ -261,75 +295,44 @@ class Query:
         total_iters = 0
         for song in self.data:
             if total_iters % 100 == 0:
-                if time.perf_counter() >= self.stop_time:
-                    yield (playlists_names, False)
+                yield
             for playlist in self.data[song].get("playlists", []):
                 if playlist in playlists_names:
                     playlists_names[playlist]["songs"].append(Song(song, self._score_song(song, playlists_names[playlist]["root_song"].query)[1], self, playlists_names[playlist]["root_song"].query))
             total_iters += 1
-        yield (playlists_names, True)
+        return playlists_names
 
-    def get_playlsits(self, songs: List[Song]):
-        if self.query_playlist_gen is None:
-            playlists_names = {}
-            for root_song in songs:
-                if len(root_song.get("playlists")) == 0:
-                    playlists_names[root_song.get("title")] = {"songs": [], "root_song": root_song}
-                    playlists_names[root_song.get("title")]["songs"] = [root_song]
-                for playlist in root_song.get("playlists"):
-                    playlists_names[playlist] = {"songs": [], "root_song": root_song}
-            self.query_playlist_gen = self._query_playlists(playlists_names)
-        playlists_names, done = next(self.query_playlist_gen)
-        if done:
-            self.query_playlist_gen = None
+    def get_playlists(self, songs: list[Song]):
+        playlists_names = {}
+        for root_song in songs:
+            if len(root_song.get("playlists")) == 0:
+                playlists_names[root_song.get("title")] = {"songs": [], "root_song": root_song}
+                playlists_names[root_song.get("title")]["songs"] = [root_song]
+            for playlist in root_song.get("playlists"):
+                playlists_names[playlist] = {"songs": [], "root_song": root_song}
+        yield from self._query_playlists(playlists_names)
         results = []
         for playlist in playlists_names:
             if len(playlists_names[playlist]["songs"]) > 0:
                 results.append(Playlist(playlists_names[playlist]["songs"], playlist, playlists_names[playlist]["root_song"]))
-        return (results, done)
+        return results
 
+    def shuffle_playlists(self, playlists: list[Playlist]):
+        for playlist in playlists:
+            shuffle(playlist.songs)
+            yield
+        return playlists
 
-    def query(self, ast: Pair, stop_time, restart = False):
+    def _query(self, ast: Pair):
         asm = self._compile_ast(ast)
-        self.stop_time = stop_time
-        if self.generator is None or restart:
-            self.last_query = None
-            self.generator = self._query_db(asm)
-        if not self.last_query is not None:
-            results, done = next(self.generator)
-            self.query_playlist_gen = None
-            if done:
-                self.last_query = results
-        else:
-            done = True
-            results = self.last_query
-        if asm[0]["key"] == "songs":
-            return (Playable(results, "songs"), done)
+        results = yield from self._query_db(asm)
+        options = self.options.get(asm[0]["key"], self.options["default"]) 
+        for worker in options["funcs"]:
+            results = yield from worker(results)
+        return Playable(results, options["key_word"])
 
-        if asm[0]["key"] == "loop":
-            return (Playable(results, "loop"), done)
-
-        if asm[0]["key"] == "append":
-            return (Playable(results, "append"), done)
-
-        if asm[0]["key"] == "insert-next":
-            return (Playable(results, "insert-next"), done)
-
-        if asm[0]["key"] == "append-playlist":
-            playlists, p_done = self.get_playlsits(results)
-            return (Playable(playlists, "append"), done and p_done)
-
-        if asm[0]["key"] == "all-matches":
-            return (Playable([Playlist(results, "", None)], "all-matches"), done)
-
-        if asm[0]["key"] == "shuffled-playlists":
-            playlists, p_done = self.get_playlsits(results)
-            for playlist in playlists:
-                shuffle(playlist.songs)
-            return (Playable(playlists, "shuffled-playlists"), done and p_done)
-
-        playlists, p_done = self.get_playlsits(results)
-        return (Playable(playlists, "playlists"), done and p_done)
+    def query(self, ast: Pair, work_time: float, restart: bool = False):
+        return self._query_worker.do_work(work_time, restart, ast)
 
 if __name__ == "__main__":
     def print_playable(results):
@@ -348,8 +351,9 @@ if __name__ == "__main__":
     running = True
     loops = 0
     while running:
-        results, done = query.query(ast, time.perf_counter() + 0.01) 
-        if done:
+        results = query.query(ast, 0.01) 
+        # print(f"iter: {loops}")
+        if results is not None:
             running = False
         loops += 1;
     print(f"Total loops took {loops}")
