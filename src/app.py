@@ -44,7 +44,7 @@ class Main:
         self.player = Player(self.ui.root_surf, self.socket_file, self.playback_cmd)
 
 
-        self.selected = Optional[list]
+        self.selected: Optional[list] = None
         self.text = ""
         self.frame_rate = 60
         self.update = False
