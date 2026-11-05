@@ -218,8 +218,9 @@ class Lexer:
                     self._buffer_add()
                     return True
                 elif token.basic_type == basic_types.ESC:
-                    self._buffer_add()
-                    self.iter += 1
+                    if self.tokens[self.iter + 1].basic_type != basic_types.EOF: # make sure that it can't escape end of File
+                        self._buffer_add()
+                        self.iter += 1
                 elif token.basic_type == basic_types.EOF:
                     return False
                 self._buffer_add()
@@ -240,8 +241,9 @@ class Lexer:
             else:
                 raise SyntaxError("How did this happen?")
             if token.basic_type == basic_types.ESC:
-                self.iter += 1
-                continue
+                if self.tokens[self.iter + 1].basic_type != basic_types.EOF: # make sure that it can't escape end of File
+                    self.iter += 1
+                    continue
             return True
 
     def _in_L_OP(self):
@@ -319,6 +321,7 @@ class Lexer:
 if __name__ == "__main__": # pragma: no cover
     string = 'playlists: artist: "*iron*" (title: king and title: "Left*")'
     string = r"playlists: playlists: 'Red (Taylor's Version)'"
+    string = "\\"
     tk = Lexer()
     import time
     print(f"{string=}")

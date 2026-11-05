@@ -190,7 +190,7 @@ class Query:
 
     def _fuzz(self, value: str, query: str):
         cached =  self._fuzz_cache.get((value, query))
-        if cached:
+        if cached is not None: # this has to check against None since a cached value of 0 is falsy
             return cached
         min_score = 60
         p_weight = 0.60

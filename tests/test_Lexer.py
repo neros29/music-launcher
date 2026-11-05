@@ -23,6 +23,7 @@ def lexer():
     ("artist:\x00\n\tironmouse", [("", token_types.SOF), ("artist:", token_types.TYPE), ("\x00\n\tironmouse", token_types.VALUE),("", token_types.EOF)]),
     ('artist: "\\"artist\\""', [("", token_types.SOF), ("artist:", token_types.TYPE), (' "\\"artist\\""', token_types.S_VALUE),("", token_types.EOF)]),
     ('', [("", token_types.SOF),("", token_types.EOF)]),
+    ('\\', [("", token_types.SOF),("\\", token_types.VALUE),("", token_types.EOF)]),
     ('!@#$%^&*', [("", token_types.SOF), ("!@#$%^&*", token_types.VALUE),("", token_types.EOF)]),
     ('some random text', [("", token_types.SOF),("some random text", token_types.VALUE),("", token_types.EOF)]),
     ('playlists: (title: left right)', [("", token_types.SOF), ("playlists:", token_types.TYPE), (" (", token_types.L_OP), ("title:", token_types.TYPE), (' left right', token_types.VALUE), (")", token_types.R_OP), ("", token_types.EOF)]),
