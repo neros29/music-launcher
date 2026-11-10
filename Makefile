@@ -32,7 +32,7 @@ $(TUI):
 
 	@# 4. Clone tuilib if not present
 	@if [ ! -d "include/tuilib" ]; then \
-		git clone https://github.com/neros30/tuilib/ ./include/tuilib/; \
+		git clone https://github.com/neros29/tuilib/ ./include/tuilib/; \
 	fi
 	
 	@# 5. Compile C++ Pybind11 extension using the venv's python interpreter
